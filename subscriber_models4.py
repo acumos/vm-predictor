@@ -4,9 +4,9 @@ import pandas as pd
 import h2o
 from h2o.estimators.random_forest import H2ORandomForestEstimator
 
-
+    
 # derived from calc_AAE.py    
-def calc_AAE (predict_h2o, actual_h2o, target_col):           
+def ORIGINAL_calc_AAE (predict_h2o, actual_h2o, target_col):           
     # we must convert to pandas first to preserve NAN entries
     actual = actual_h2o.as_data_frame()
     actual = actual[target_col]
@@ -20,8 +20,37 @@ def calc_AAE (predict_h2o, actual_h2o, target_col):
     
 
 
+    
+def train_and_predit(train_path, test_path, target_col, cols):
+    print (">> Building model for target ", target_col)
+    
+    h2o.init()
+    rf_model = H2ORandomForestEstimator (response_column=target_col, ntrees=20)
+    print (">>   importing:", train_path)
+    train_frame = h2o.import_file(path=train_path)    
+    print (">>   importing:", test_path)
+    test_frame = h2o.import_file(path=test_path)    
+    
+    print (">>   training...")
+    res = rf_model.train (x=cols, y=target_col, training_frame=train_frame)
+    
+    print (">>   predicting...")
+    preds = rf_model.predict(test_frame)
 
-def train_and_test(train_path, test_path, target_col, cols):
+    predicted = preds.as_data_frame()    
+    
+    h2o.remove(train_frame.frame_id)
+    h2o.remove(test_frame.frame_id)
+    h2o.remove(preds.frame_id)
+
+    return predicted
+    
+    
+    
+    
+
+'''
+def ORIGINAL_train_and_test(train_path, test_path, target_col, cols):
     print (">> Building model for target ", target_col)
     
     h2o.init()
@@ -54,7 +83,7 @@ def train_and_test(train_path, test_path, target_col, cols):
 
 
     
-'''    
+    
 def OLD_predict_sliding_window (df, date_col='DATETIMEUTC', target_col):        # presumed that the incoming dataframe contains ONLY rows for the VM/subscriber/whatever
     training_period = 30 days
     predict_period = 7 days
@@ -83,7 +112,7 @@ def OLD_predict_sliding_window (df, date_col='DATETIMEUTC', target_col):        
 '''
 
         
-def predict_sliding_window (df, date_col, target_col, feat_cols, train_interval, predict_interval ):        # presumed that the incoming dataframe contains ONLY rows of interest
+def predict_sliding_windows (df, date_col, target_col, feat_cols, train_interval, predict_interval ):        # presumed that the incoming dataframe contains ONLY rows of interest
     DT = 'DT'
     df[DT] = pd.to_datetime(df[date_col])
     df = df.sort_values(DT)
@@ -104,25 +133,27 @@ def predict_sliding_window (df, date_col, target_col, feat_cols, train_interval,
         
         df_train = df[(df[DT] >= train_start) & (df[DT] < train_stop)]
         if len(df_train) < min_train_rows:
-            import pdb; pdb.set_trace()
             break
             
         df_test = df[(df[DT] >= predict_start) & (df[DT] < predict_stop)]
         if len(df_test) < min_predict_rows:
-            import pdb; pdb.set_trace()
             break
             
         df_train.to_csv(training_file_name, index=False)
         df_test.to_csv(testing_file_name, index=False)
         
-        pred,act,err = train_and_test(training_file_name, testing_file_name, target_col, feat_cols)
-        result.append((pred,act,err))
+        preds = train_and_predit(training_file_name, testing_file_name, target_col, feat_cols)
+        result.append(preds)
+        import pdb; pdb.set_trace()
+        
         
         #remove_files ([training_file_name, testing_file_name])
         train_start += predict_interval
         
     return result
 
+    
+    
         
 # time_idx = pd.DatetimeIndex(df['DATETIMEUTC'])        # could be useful!
         
@@ -135,16 +166,63 @@ def example (filename, date_col='DATETIMEUTC', target_col='cpu_usage', features=
     trn_int = pd.Timedelta(days=training_interval_in_days)
     prd_int = pd.Timedelta(days=predict_interval_in_days)
     
-    return predict_sliding_window (df, date_col, target_col, features, trn_int, prd_int)
+    return predict_sliding_windows (df, date_col, target_col, features, trn_int, prd_int)
     
     
     
+# derived from calc_AAE.py    
+def calc_AAE (predictions, actual):               # input:  two pd.Series
+    numerator = abs(predictions - actual)
+    denominator = predictions.combine(actual, max)
+    aae = numerator / denominator
+    return aae.mean()
+    
+    
+
+def draw_chart (chart_title, predicted, actual, dates, png_filename):       # three pd.Series
+    fig = plt.figure(figsize=(11,8))
+    ax = fig.add_subplot(111)
+    ordinals = [matplotlib.dates.date2num(d) for d in dates] 
+    
+    ax.plot_date(ordinals,actual[target_col], 'b-', label='Actual')
+    ax.plot_date(ordinals,predicted['predict'],'r-', label='Predicted')
+
+    ax.xaxis.set_major_locator(DayLocator())
+    ax.xaxis.set_major_formatter(DateFormatter('%Y-%b-%d'))
+    ax.xaxis.set_minor_locator(HourLocator())
+    ax.autoscale_view()
+    ax.grid(True)
+    fig.autofmt_xdate()
+    
+    legend = ax.legend(loc='upper right', shadow=True)
+    plt.title (chart_title)
+    fig.savefig(png_filename)
+    plt.close()
+    print ">>   wrote: ", png_filename
     
 
 
 
 if __name__ == "__main__":
+    entity = "08afdbcc-55b2-404f-9c13-2af69cdcf611.csv"
+    target = "cpu_usage"
+    subscriber = None
+    
+    res = example (entity, target_col=target, training_interval_in_days=13.0, predict_interval_in_days=5.0)
+    aae = calc_AAE (res['predict'], res['actual'])
 
-    res = example ("08afdbcc-55b2-404f-9c13-2af69cdcf611.csv", training_interval_in_days=15.0, predict_interval_in_days=7.0)
-    import pdb; pdb.set_trace()
+    fname = create_filename (png_base_path, target, entity, subscriber)
 
+    
+    title = target + "\n" + entity + " (AAE=%s)" % aae
+    draw_chart (title, res['predict'], res['actual'], res['dates'], fname)
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
