@@ -5,23 +5,10 @@ import h2o
 from h2o.estimators.random_forest import H2ORandomForestEstimator
 
     
-# derived from calc_AAE.py    
-def ORIGINAL_calc_AAE (predict_h2o, actual_h2o, target_col):           
-    # we must convert to pandas first to preserve NAN entries
-    actual = actual_h2o.as_data_frame()
-    actual = actual[target_col]
-    predicted = predict_h2o.as_data_frame()
-    predicted = predicted['predict']
-
-    numerator = abs(predicted - actual)
-    denominator = predicted.combine(actual, max)
-    aae = numerator / denominator
-    return aae.mean()
-    
 
 
     
-def train_and_predit(train_path, test_path, target_col, cols):
+def H2O_train_and_predict(train_path, test_path, target_col, cols):
     print (">> Building model for target ", target_col)
     
     h2o.init()
@@ -47,85 +34,18 @@ def train_and_predit(train_path, test_path, target_col, cols):
     
     
     
-    
-
-'''
-def ORIGINAL_train_and_test(train_path, test_path, target_col, cols):
-    print (">> Building model for target ", target_col)
-    
-    h2o.init()
-    rf_model = H2ORandomForestEstimator (response_column=target_col, ntrees=20)
-    print (">>   importing:", train_path)
-    train_frame = h2o.import_file(path=train_path)    
-    print (">>   importing:", test_path)
-    test_frame = h2o.import_file(path=test_path)    
-    
-    print (">>   training...")
-    #cols = [u'month', u'day', u'weekday', u'hour', u'minute']    
-    res = rf_model.train (x=cols, y=target_col, training_frame=train_frame)
-    
-    print (">>   predicting...")
-    preds = rf_model.predict(test_frame)
-
-    # predictions are in preds
-    print (">>   calculating AAE...")
-    aae = calc_AAE (preds, test_frame, target_col)
-    print (">>   AAE=", aae)
-    
-    predicted = preds.as_data_frame()    
-    actual = test_frame.as_data_frame()
-    
-    h2o.remove(train_frame.frame_id)
-    h2o.remove(test_frame.frame_id)
-    h2o.remove(preds.frame_id)
-
-    return predicted, actual, aae
-
-
-    
-    
-def OLD_predict_sliding_window (df, date_col='DATETIMEUTC', target_col):        # presumed that the incoming dataframe contains ONLY rows for the VM/subscriber/whatever
-    training_period = 30 days
-    predict_period = 7 days
-
-    
-    df = add_datetimes (df, date_col, "DT")     # all subsequent date calculation will use this column  (OR:  pre-process original)
-    df = sort_by_time (df, "DT")
-    
-    train_start = 0
-    
-    while train_start < len(df):
-        train_stop = walk_forward (df, train_start, training_period, "DT")
-        predict_start = train_stop
-        predict_stop = walk_forward (df, predict_start, predict_period, "DT")
+   
         
-        if predict_stop - predict_start < 1:
-            break
-            
-        f_train = extract_file (df, train_start, train_stop)
-        f_test = extract_file (df, predict_start, predict_stop)
-        
-        pred,act,err = train_and_test(f_train, f_test, target_col, feat_cols)
-        remove_files ([f_train, f_test])
-    
-        train_start = walk_forward (df, train_start, predict_period, "DT")
-'''
-
-        
-def predict_sliding_windows (df, date_col, target_col, feat_cols, train_interval, predict_interval ):        # presumed that the incoming dataframe contains ONLY rows of interest
-    DT = 'DT'
-    df[DT] = pd.to_datetime(df[date_col])
-    df = df.sort_values(DT)
-    train_start = df[DT].iloc[0]        # OR:  min(df[date_col])
-    
+def predict_sliding_windows (df, timestamp_col, target_col, feat_cols, train_interval, predict_interval ):        # presumed that the incoming dataframe contains ONLY rows of interest
     min_train_rows = 1000
     min_predict_rows = 1
     training_file_name = "./train.csv"
     testing_file_name = "./test.csv"
-    
-    
-    result = []
-    
+    DT = timestamp_col
+    predict_col = 'predict'                 # H2O convention
+
+    train_start = df[DT].iloc[0]
+    result = pd.DataFrame(columns=[predict_col, target_col, DT])
     while True:
         train_stop = train_start + train_interval
         predict_start = train_stop
@@ -142,10 +62,10 @@ def predict_sliding_windows (df, date_col, target_col, feat_cols, train_interval
         df_train.to_csv(training_file_name, index=False)
         df_test.to_csv(testing_file_name, index=False)
         
-        preds = train_and_predit(training_file_name, testing_file_name, target_col, feat_cols)
-        result.append(preds)
-        import pdb; pdb.set_trace()
-        
+        preds = H2O_train_and_predict(training_file_name, testing_file_name, target_col, feat_cols)
+        kwargs = {predict_col : preds[predict_col].values}
+        df_test = df_test.assign (**kwargs)
+        result = pd.concat([result, df_test[[predict_col, target_col, DT]]])
         
         #remove_files ([training_file_name, testing_file_name])
         train_start += predict_interval
@@ -153,21 +73,31 @@ def predict_sliding_windows (df, date_col, target_col, feat_cols, train_interval
     return result
 
     
-    
         
-# time_idx = pd.DatetimeIndex(df['DATETIMEUTC'])        # could be useful!
+       
         
-        
-def example (filename, date_col='DATETIMEUTC', target_col='cpu_usage', features=[u'month', u'day', u'weekday', u'hour', u'minute'],
-             training_interval_in_days=31.0, predict_interval_in_days=1.0):
-          
-    #import pdb; pdb.set_trace()
+def train_test (filename, features, date_col, target_col, training_interval_in_days, predict_interval_in_days):
     df = pd.read_csv(filename)
     trn_int = pd.Timedelta(days=training_interval_in_days)
     prd_int = pd.Timedelta(days=predict_interval_in_days)
     
-    return predict_sliding_windows (df, date_col, target_col, features, trn_int, prd_int)
+    DT = 'DT'
+    df[DT] = pd.to_datetime(df[date_col])       # WHO does this conversion and WHEN ?
+    df = df.sort_values(DT)
+
+    df_result = predict_sliding_windows (df, DT, target_col, features, trn_int, prd_int)
+    return df_result[DT], df_result['predict'], df_result[target_col]
     
+
+
+# PANDAS CUTOFF LINE ---------------------------------------------------------------------------------------------------------
+
+import os
+import matplotlib 
+matplotlib.use ("Agg")
+import matplotlib.pyplot as plt
+import datetime
+from matplotlib.dates import YearLocator, MonthLocator, DayLocator, HourLocator, DateFormatter
     
     
 # derived from calc_AAE.py    
@@ -184,8 +114,8 @@ def draw_chart (chart_title, predicted, actual, dates, png_filename):       # th
     ax = fig.add_subplot(111)
     ordinals = [matplotlib.dates.date2num(d) for d in dates] 
     
-    ax.plot_date(ordinals,actual[target_col], 'b-', label='Actual')
-    ax.plot_date(ordinals,predicted['predict'],'r-', label='Predicted')
+    ax.plot_date(ordinals,actual,'b-', label='Actual')
+    ax.plot_date(ordinals,predicted,'r-', label='Predicted')
 
     ax.xaxis.set_major_locator(DayLocator())
     ax.xaxis.set_major_formatter(DateFormatter('%Y-%b-%d'))
@@ -198,27 +128,58 @@ def draw_chart (chart_title, predicted, actual, dates, png_filename):       # th
     plt.title (chart_title)
     fig.savefig(png_filename)
     plt.close()
-    print ">>   wrote: ", png_filename
+    print (">>   wrote: ", png_filename)
+    
+
+    
     
 
 
+def compose_filename(png_dir, model_name, entity, subscriber=None):
+    output_path = png_dir + "/" + model_name
+    try:
+        os.makedirs (output_path)
+    except OSError:
+        pass
+    if subscriber:
+        return output_path + "/" + subscriber + "-" + entity + ".png"
+    else:
+        return output_path + "/" + entity + ".png"
+
+   
+    
+    
+
+def process_crome_data_file (data_file_name, target, subscriber=None, train_size_days=31, predict_size_days=7, png_base_path="."):
+    dates, predicted, actual = train_test (data_file_name, features=[u'month', u'day', u'weekday', u'hour', u'minute'], date_col='DATETIMEUTC',
+                               target_col=target, training_interval_in_days=train_size_days, predict_interval_in_days=predict_size_days)
+    aae = calc_AAE (predicted, actual)
+    chart_file = compose_filename (png_base_path, target, data_file_name, subscriber)
+    title = target + "\n" + data_file_name + " (AAE=%s)" % aae
+    title += "\n" + "train=%d, test=%d" % (train_size_days, predict_size_days)
+    import pdb; pdb.set_trace()
+    draw_chart (title, predicted, actual, dates, chart_file)
+    
+
 
 if __name__ == "__main__":
+    '''
     entity = "08afdbcc-55b2-404f-9c13-2af69cdcf611.csv"
     target = "cpu_usage"
     subscriber = None
     
-    res = example (entity, target_col=target, training_interval_in_days=13.0, predict_interval_in_days=5.0)
-    aae = calc_AAE (res['predict'], res['actual'])
+    res = example (entity, target_col=target, training_interval_in_days=25.0, predict_interval_in_days=0.25)
+    aae = calc_AAE (res['predict'], res[target])
 
-    fname = create_filename (png_base_path, target, entity, subscriber)
+    fname = compose_filename (png_base_path, target, entity, subscriber)
 
     
     title = target + "\n" + entity + " (AAE=%s)" % aae
-    draw_chart (title, res['predict'], res['actual'], res['dates'], fname)
-
+    draw_chart (title, res['predict'], res['actual'], res['date'], fname)
+    '''
     
-    
+    # note this file is only 1 month long
+    process_crome_data_file ("08afdbcc-55b2-404f-9c13-2af69cdcf611.csv", "cpu_usage", train_size_days=15, predict_size_days=7)
     
     
     
