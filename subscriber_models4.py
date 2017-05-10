@@ -4,8 +4,6 @@ import pandas as pd
 import h2o
 from h2o.estimators.random_forest import H2ORandomForestEstimator
 
-    
-
 
     
 def H2O_train_and_predict(train_path, test_path, target_col, cols):
@@ -37,7 +35,7 @@ def H2O_train_and_predict(train_path, test_path, target_col, cols):
    
         
 def predict_sliding_windows (df, timestamp_col, target_col, feat_cols, train_interval, predict_interval ):        # presumed that the incoming dataframe contains ONLY rows of interest
-    min_train_rows = 1000
+    min_train_rows = 500
     min_predict_rows = 1
     training_file_name = "./train.csv"
     testing_file_name = "./test.csv"
@@ -58,7 +56,8 @@ def predict_sliding_windows (df, timestamp_col, target_col, feat_cols, train_int
         df_test = df[(df[DT] >= predict_start) & (df[DT] < predict_stop)]
         if len(df_test) < min_predict_rows:
             break
-            
+
+        print (">>   train/predict sizes: ", len(df_train), len(df_test))
         df_train.to_csv(training_file_name, index=False)
         df_test.to_csv(testing_file_name, index=False)
         
@@ -78,6 +77,7 @@ def predict_sliding_windows (df, timestamp_col, target_col, feat_cols, train_int
         
 def train_test (filename, features, date_col, target_col, training_interval_in_days, predict_interval_in_days):
     df = pd.read_csv(filename)
+    print (">> %s: %s rows" % (filename, len(df)))
     trn_int = pd.Timedelta(days=training_interval_in_days)
     prd_int = pd.Timedelta(days=predict_interval_in_days)
     
@@ -92,7 +92,8 @@ def train_test (filename, features, date_col, target_col, training_interval_in_d
 
 # PANDAS CUTOFF LINE ---------------------------------------------------------------------------------------------------------
 
-import os
+from os import listdir, makedirs
+from os.path import isfile, join, basename
 import matplotlib 
 matplotlib.use ("Agg")
 import matplotlib.pyplot as plt
@@ -136,15 +137,15 @@ def draw_chart (chart_title, predicted, actual, dates, png_filename):       # th
 
 
 def compose_filename(png_dir, model_name, entity, subscriber=None):
-    output_path = png_dir + "/" + model_name
+    output_path = join(png_dir, model_name)
     try:
-        os.makedirs (output_path)
+        makedirs (output_path)
     except OSError:
         pass
     if subscriber:
-        return output_path + "/" + subscriber + "-" + entity + ".png"
+        return join(output_path, subscriber) + "-" + entity + ".png"
     else:
-        return output_path + "/" + entity + ".png"
+        return join(output_path, entity) + ".png"
 
    
     
@@ -153,13 +154,15 @@ def compose_filename(png_dir, model_name, entity, subscriber=None):
 def process_crome_data_file (data_file_name, target, subscriber=None, train_size_days=31, predict_size_days=7, png_base_path="."):
     dates, predicted, actual = train_test (data_file_name, features=[u'month', u'day', u'weekday', u'hour', u'minute'], date_col='DATETIMEUTC',
                                target_col=target, training_interval_in_days=train_size_days, predict_interval_in_days=predict_size_days)
-    aae = calc_AAE (predicted, actual)
-    chart_file = compose_filename (png_base_path, target, data_file_name, subscriber)
-    title = target + "\n" + data_file_name + " (AAE=%s)" % aae
-    title += "\n" + "train=%d, test=%d" % (train_size_days, predict_size_days)
-    import pdb; pdb.set_trace()
-    draw_chart (title, predicted, actual, dates, chart_file)
-    
+                               
+    if len(dates) > 0:
+        aae = calc_AAE (predicted, actual)
+        chart_file = compose_filename (png_base_path, target, basename(data_file_name), subscriber)
+        title = target + "\n" + basename(data_file_name) + " (AAE=%s)" % aae
+        title += "\n" + "train=%d, test=%d" % (train_size_days, predict_size_days)
+        draw_chart (title, predicted, actual, dates, chart_file)
+    else:
+        print (">>   not enough data")
 
 
 if __name__ == "__main__":
@@ -179,7 +182,16 @@ if __name__ == "__main__":
     '''
     
     # note this file is only 1 month long
-    process_crome_data_file ("08afdbcc-55b2-404f-9c13-2af69cdcf611.csv", "cpu_usage", train_size_days=15, predict_size_days=7)
+    #process_crome_data_file ("08afdbcc-55b2-404f-9c13-2af69cdcf611.csv", "cpu_usage", train_size_days=15, predict_size_days=0.2)
+    
+    
+    mypath = "./VM_ID"
+    VMs = [join(mypath,f) for f in listdir(mypath) if isfile(join(mypath, f))]    
+    
+    for vm_file in VMs:
+        process_crome_data_file (vm_file, "cpu_usage", train_size_days=31, predict_size_days=7, png_base_path="./sm4_out")
+    
+    
     
     
     
