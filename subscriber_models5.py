@@ -35,7 +35,7 @@ def H2O_train_and_predict(train_path, test_path, target_col, cols):
    
         
 def predict_sliding_windows (df, target_col, feat_cols, train_interval, predict_interval ):        # presumed that the incoming dataframe contains ONLY rows of interest
-    min_train_rows = 500
+    min_train_rows = 300
     min_predict_rows = 1
     training_file_name = "./train.csv"
     testing_file_name = "./test.csv"
@@ -111,7 +111,9 @@ def windowed_train_test (filename, date_col, target_col, training_interval_in_da
     
     df_result = predict_sliding_windows (df, target_col, features, trn_int, prd_int)
     if len(df_result) > 0:
-        return df_result.index, df_result['predict'], df_result[target_col]
+        dates = df_result.index
+        df_result.index = range(len(df_result))                         # quash the DatetimeIndex:  it causes problems later
+        return dates, df_result['predict'], df_result[target_col]
     else:
         return [],[],[]        
     
@@ -173,6 +175,7 @@ def compose_filename(png_dir, model_name, entity, subscriber=None):
         return join(output_path, entity) + ".png"
     
     
+# See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases for sample string formats
 
 def process_crome_data_file (data_file_name, target, subscriber=None, train_size_days=31, predict_size_days=7, sample_str="1H", png_base_path="."):
     chart_file = compose_filename (png_base_path, target, basename(data_file_name), subscriber)
@@ -183,41 +186,23 @@ def process_crome_data_file (data_file_name, target, subscriber=None, train_size
                                    target_col=target, training_interval_in_days=train_size_days, predict_interval_in_days=predict_size_days, sample_str=sample_str)
                                    
         if len(dates) > 0:
-            import pdb; pdb.set_trace()
             aae = calc_AAE (predicted, actual)
             title = target + "\n" + basename(data_file_name) + " (AAE=%s)" % aae
-            title += "\n" + "train=%d, test=%d" % (train_size_days, predict_size_days)
+            title += "\n" + "unit=" + sample_str + ", train=%dd, test=%dd" % (train_size_days, predict_size_days)
             draw_chart (title, predicted, actual, dates, chart_file)
         else:
             print (">>   not enough data")
 
 
 if __name__ == "__main__":
-    '''
-    entity = "08afdbcc-55b2-404f-9c13-2af69cdcf611.csv"
-    target = "cpu_usage"
-    subscriber = None
+    # process_crome_data_file ("VM_ID/210bb31b-48ea-489a-a17e-058ebfdf09d5.csv", "cpu_usage", train_size_days=31, predict_size_days=7, sample_str="1H")
     
-    res = example (entity, target_col=target, training_interval_in_days=25.0, predict_interval_in_days=0.25)
-    aae = calc_AAE (res['predict'], res[target])
-
-    fname = compose_filename (png_base_path, target, entity, subscriber)
-
-    
-    title = target + "\n" + entity + " (AAE=%s)" % aae
-    draw_chart (title, res['predict'], res['actual'], res['date'], fname)
-    '''
-    
-    # note this file is only 1 month long
-    process_crome_data_file ("VM_ID/210bb31b-48ea-489a-a17e-058ebfdf09d5.csv", "cpu_usage", train_size_days=31, predict_size_days=7, sample_str="1H")
-    
-    '''
     mypath = "./VM_ID"
     VMs = [join(mypath,f) for f in listdir(mypath) if isfile(join(mypath, f))]    
     
     for vm_file in VMs:
-        process_crome_data_file (vm_file, "cpu_usage", train_size_days=31, predict_size_days=7, png_base_path="./sm4_out")
-    '''
+        process_crome_data_file (vm_file, "cpu_usage", train_size_days=31, predict_size_days=7, png_base_path="./sm5_out", sample_str="1H")
+    
     
     
     
