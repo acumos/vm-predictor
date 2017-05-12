@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import pandas as pd
+import numpy as np
 import h2o
 from h2o.estimators.random_forest import H2ORandomForestEstimator
 
@@ -83,7 +84,8 @@ def transform_dataframe (df, target_col, date_col, interval):       # could be a
     df.drop (DT, axis=1, inplace=True)
     
     # 2. re-sample at desired interval, e.g. "15min" or "1H".  See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
-    df = df.resample (interval).mean()
+    if interval:
+        df = df.resample (interval).mean()
     
     # 3. add time features
     df['month'] =  df.index.month
@@ -100,17 +102,18 @@ def transform_dataframe (df, target_col, date_col, interval):       # could be a
     
     
 
-def windowed_train_test (filename, date_col, target_col, training_interval_in_days, predict_interval_in_days, sample_str):
+def windowed_train_test (filename, date_col, target_col, training_interval_in_days, predict_interval_in_days, resamp_str, pctile=None):
     df = pd.read_csv(filename)
     print (">> %s: %s rows" % (filename, len(df)))
-    print (">> transform")
-    df, features = transform_dataframe (df, target_col, date_col, sample_str)
-    
+    df, features = transform_dataframe (df, target_col, date_col, resamp_str)
+
     trn_int = pd.Timedelta(days=training_interval_in_days)
     prd_int = pd.Timedelta(days=predict_interval_in_days)
     
     df_result = predict_sliding_windows (df, target_col, features, trn_int, prd_int)
     if len(df_result) > 0:
+        if pctile:
+            df_result = df_result.resample("1D").apply(lambda x: np.percentile(x, pctile))
         dates = df_result.index
         df_result.index = range(len(df_result))                         # quash the DatetimeIndex:  it causes problems later
         return dates, df_result['predict'], df_result[target_col]
@@ -175,34 +178,34 @@ def compose_filename(png_dir, model_name, entity, subscriber=None):
         return join(output_path, entity) + ".png"
     
     
-# See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases for sample string formats
+# See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases for resample string formats
 
-def process_crome_data_file (data_file_name, target, subscriber=None, train_size_days=31, predict_size_days=7, sample_str="1H", png_base_path="."):
+def process_crome_data_file (data_file_name, target, subscriber=None, train_size_days=31, predict_size_days=7, resample_str="1H", png_base_path="."):
     chart_file = compose_filename (png_base_path, target, basename(data_file_name), subscriber)
     if exists(chart_file):
         print (">> ALREADY EXISTS!")
     else:
         dates, predicted, actual = windowed_train_test (data_file_name, date_col='DATETIMEUTC',
-                                   target_col=target, training_interval_in_days=train_size_days, predict_interval_in_days=predict_size_days, sample_str=sample_str)
-                                   
+                                   target_col=target, training_interval_in_days=train_size_days, predict_interval_in_days=predict_size_days, 
+                                   resamp_str=resample_str, pctile=95)
         if len(dates) > 0:
             aae = calc_AAE (predicted, actual)
-            title = target + "\n" + basename(data_file_name) + " (AAE=%s)" % aae
-            title += "\n" + "unit=" + sample_str + ", train=%dd, test=%dd" % (train_size_days, predict_size_days)
+            title = target + " daily 95th pctile\n" + basename(data_file_name) + " (AAE=%s)" % aae
+            title += "\n" + "unit=" + resample_str + ", train=%dd, test=%dd" % (train_size_days, predict_size_days)
             draw_chart (title, predicted, actual, dates, chart_file)
         else:
             print (">>   not enough data")
 
 
+            
 if __name__ == "__main__":
-    # process_crome_data_file ("VM_ID/210bb31b-48ea-489a-a17e-058ebfdf09d5.csv", "cpu_usage", train_size_days=31, predict_size_days=7, sample_str="1H")
+    # process_crome_data_file ("VM_ID/210bb31b-48ea-489a-a17e-058ebfdf09d5.csv", "cpu_usage", train_size_days=31, predict_size_days=1, resample_str="15min")
     
-    mypath = "./VM_ID"
+    mypath = "./VM_data"
     VMs = [join(mypath,f) for f in listdir(mypath) if isfile(join(mypath, f))]    
     
     for vm_file in VMs:
-        process_crome_data_file (vm_file, "cpu_usage", train_size_days=31, predict_size_days=7, png_base_path="./sm5_out", sample_str="1H")
-    
+        process_crome_data_file (vm_file, "cpu_usage", train_size_days=31, predict_size_days=1, png_base_path="./sm5_pct95", resample_str="15min")
     
     
     
