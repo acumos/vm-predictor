@@ -66,8 +66,6 @@ class CromeProcessor:
     # See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases for resample strings
     def __init__ (self, target_col, date_col='DATETIMEUTC', train_size_days=31, predict_size_days=1, resample_str="15min", png_base_path="." ):
         self.target_col = target_col
-        self.train_size_days = train_size_days
-        self.predict_size_days = predict_size_days
         self.train_interval = pd.Timedelta(days=train_size_days)
         self.predict_interval = pd.Timedelta(days=predict_size_days)
         self.resample_str = resample_str
@@ -78,12 +76,10 @@ class CromeProcessor:
         self.pctile = 95
         self.training_file_name = "./train.csv"
         self.testing_file_name = "./test.csv"
-        self.busy_period = 1        # in hours
+        self.busyHours = 4        # in hours
         self.STD = True
         self.VAR = True
-        self.busyHour = True
         self.showRaw = True
-        
                
     
     def process_file (self, filename):
@@ -101,17 +97,12 @@ class CromeProcessor:
                 self.add_view (output, "std", df_result.resample("1D").apply(lambda x: np.std(x)), False)
             if self.VAR:
                 self.add_view (output, "variance", df_result.resample("1D").apply(lambda x: np.var(x)), False)
-            if self.busyHour:
-                self.add_view (output, "busy_avg", self.busy_hour(df_result), True)
+            if self.busyHours:
+                df_hour = df_result.resample("1H").mean()
+                self.add_view (output, "busy_avg_%sH" % self.busyHours, df_hour.resample("1D").apply(lambda x: get_busy_avg(x, self.busyHours)), True)
         else:
             print (">> insufficient data")
         return output
-
-            
-    def busy_hour (self, df):
-        df_hour = df.resample("1H").mean()
-        #return df_hour.resample("1D").apply(lambda x: get_busy_hour(x,self.busy_period).hour)
-        return df_hour.resample("1D").apply(lambda x: get_busy_avg(x,self.busy_period))
             
     
     def transform_dataframe (self, df):       # could be a pipeline
@@ -199,7 +190,7 @@ class CromeProcessor:
             title += filename
             if "error" in charts[chart]:
                 title += "  (err=%s)" % charts[chart]["error"]
-            title += "\nunit=" + self.resample_str + ", train=%dd, test=%dd" % (self.train_size_days, self.predict_size_days)
+            title += "\nunit=" + self.resample_str + ", train=%dd, test=%dd" % (self.train_interval.days, self.predict_interval.days)
             outfile = self.compose_chart_name (filename, chart)
             draw_chart(title, df['predict'], df[self.target_col], df.index, outfile)
     
@@ -244,12 +235,18 @@ if __name__ == "__main__":
     #fname = "VM_data/ad78e88c-ebb3-487e-ab6b-2eef62d81c5f.csv"
     #results = cp.process_file (fname)
     #cp.draw_charts(results, basename(fname))
+
+    import argparse
+    parser = argparse.ArgumentParser(description = "CROME training and testing", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('-t', '--target', help='target prediction column', default='cpu_usage')
+    parser.add_argument('-d', '--dir', help = 'directory containing CSV files', type=str)
+    parser.add_argument('-p', '--png_dir', help = 'destination directory for PNG files', default='./png')
+    parser.add_argument('-n', '--max_files', help = 'process at most N files', type=int, default=1000000)
+    parser.add_argument('files', nargs='+', help='list of CSV files to process')
+    cfg = parser.parse_args()
     
-    mypath = "./VM_data"
-    VMs = [join(mypath,f) for f in listdir(mypath) if isfile(join(mypath, f))]    
-    
-    cp = CromeProcessor ('cpu_usage', png_base_path="./sm6")
-    for fname in VMs[:100]:
+    cp = CromeProcessor ('cpu_usage', png_base_path=cfg.png_dir)
+    for fname in cfg.files[:cfg.max_files]:
         results = cp.process_file(fname)
         cp.draw_charts(results, basename(fname))
     
