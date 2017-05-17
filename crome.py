@@ -200,16 +200,18 @@ class CromeProcessor:
         
     def draw_charts (self, charts, filename):
         outfile = self.compose_chart_name2 (filename)
-        ch_list = []            # TEMP !!!
+        ch_list = []
         for chart in charts:
             df = charts[chart]["data"]
-            title = self.target_col + ":  " + chart + "\n"
+            #title = self.target_col + ":  " + chart + "\n"
             #title += filename
+            title = chart
             if "error" in charts[chart]:
-                title += "Error=%s\n" % charts[chart]["error"]
-            title += "unit=" + self.resample_str + ", train=%dd, test=%dd" % (self.train_interval.days, self.predict_interval.days)
-            ch_list.append ((title, df['predict'], df[self.target_col], df.index))     # TEMP !!!
-        draw_multi_charts (ch_list, filename, outfile)
+                title += " (err=%5.3f)" % charts[chart]["error"]
+            #title += "unit=" + self.resample_str + ", train=%dd, test=%dd" % (self.train_interval.days, self.predict_interval.days)
+            ch_list.append ((title, df['predict'], df[self.target_col], df.index))
+        bigtitle = "%s %s unit=%s train=%dd test=%dd" % (filename, self.target_col, self.resample_str, self.train_interval.days, self.predict_interval.days)
+        draw_multi_charts (ch_list, bigtitle, outfile)
         
         
     def compose_chart_name(self, entity, chart_type, subscriber=None):
@@ -289,10 +291,11 @@ def draw_multi_charts (chartlist, main_title, outputfile):
         ax.grid(True)
         fig.autofmt_xdate()
         
-        legend = ax.legend(loc='upper right', shadow=True)
+        legend = ax.legend(loc='upper right', shadow=True, fontsize=4)
         ax.set_title (chart_title)
         
-    plt.title (main_title)
+    #plt.title (main_title)
+    fig.suptitle(main_title)
     fig.savefig(outputfile)
     plt.close()
     print (">>   wrote: ", outputfile)
