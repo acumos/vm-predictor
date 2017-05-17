@@ -183,7 +183,8 @@ class CromeProcessor:
         return aae.mean()
 
         
-    def draw_charts (self, charts, filename):       
+    def draw_charts_original (self, charts, filename):       
+        ch_list = []            # TEMP !!!
         for chart in charts:
             df = charts[chart]["data"]
             title = self.target_col + ":  " + chart + "\n"
@@ -193,7 +194,23 @@ class CromeProcessor:
             title += "\nunit=" + self.resample_str + ", train=%dd, test=%dd" % (self.train_interval.days, self.predict_interval.days)
             outfile = self.compose_chart_name (filename, chart)
             draw_chart(title, df['predict'], df[self.target_col], df.index, outfile)
-    
+            ch_list.append ((title, df['predict'], df[self.target_col], df.index))     # TEMP !!!
+        return ch_list
+
+        
+    def draw_charts (self, charts, filename):
+        outfile = self.compose_chart_name2 (filename)
+        ch_list = []            # TEMP !!!
+        for chart in charts:
+            df = charts[chart]["data"]
+            title = self.target_col + ":  " + chart + "\n"
+            #title += filename
+            if "error" in charts[chart]:
+                title += "Error=%s\n" % charts[chart]["error"]
+            title += "unit=" + self.resample_str + ", train=%dd, test=%dd" % (self.train_interval.days, self.predict_interval.days)
+            ch_list.append ((title, df['predict'], df[self.target_col], df.index))     # TEMP !!!
+        draw_multi_charts (ch_list, filename, outfile)
+        
         
     def compose_chart_name(self, entity, chart_type, subscriber=None):
         output_path = join(self.png_base, self.target_col)
@@ -206,6 +223,14 @@ class CromeProcessor:
         else:
             return join(output_path, entity) + "-" + chart_type + ".png"
         
+
+    def compose_chart_name2(self, entity):
+        output_path = join(self.png_base, self.target_col)
+        try:
+            makedirs (output_path)
+        except OSError:
+            pass
+        return join(output_path, entity) + ".png"
         
             
 def draw_chart (chart_title, predicted, actual, dates, png_filename):       # three pd.Series
@@ -229,7 +254,52 @@ def draw_chart (chart_title, predicted, actual, dates, png_filename):       # th
     plt.close()
     print (">>   wrote: ", png_filename)
     
+
+
+
+def get_page_dim(total):
+    rows, cols = 1,1
+    while rows * cols < total:
+        if cols == rows:
+            cols += 1
+        else:
+            rows += 1
+    return rows, cols
+
+
+
+def draw_multi_charts (chartlist, main_title, outputfile):
+    fig = plt.figure(figsize=(11,8))
+    rows, cols = get_page_dim (len(chartlist))
+    index = 1
+    
+    for (chart_title, predicted, actual, dates) in chartlist:
+        ax = fig.add_subplot(rows, cols, index)
+        index += 1
         
+        ordinals = [matplotlib.dates.date2num(d) for d in dates] 
+        
+        ax.plot_date(ordinals,actual,'b-', label='Actual')
+        ax.plot_date(ordinals,predicted,'r-', label='Predicted')
+
+        ax.xaxis.set_major_locator(DayLocator())
+        ax.xaxis.set_major_formatter(DateFormatter('%Y-%b-%d'))
+        ax.xaxis.set_minor_locator(HourLocator())
+        ax.autoscale_view()
+        ax.grid(True)
+        fig.autofmt_xdate()
+        
+        legend = ax.legend(loc='upper right', shadow=True)
+        ax.set_title (chart_title)
+        
+    plt.title (main_title)
+    fig.savefig(outputfile)
+    plt.close()
+    print (">>   wrote: ", outputfile)
+
+
+
+    
         
 if __name__ == "__main__":
     #fname = "VM_data/ad78e88c-ebb3-487e-ab6b-2eef62d81c5f.csv"
