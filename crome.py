@@ -99,6 +99,7 @@ class CromeProcessor:
                 self.add_view (output, "variance", df_result.resample("1D").apply(lambda x: np.var(x)), False)
             if self.busyHours:
                 df_hour = df_result.resample("1H").mean()
+                self.add_view (output, "busy_hour_%sH" % self.busyHours, df_hour.resample("1D").apply(lambda x: get_busy_hour(x, self.busyHours).hour), False)
                 self.add_view (output, "busy_avg_%sH" % self.busyHours, df_hour.resample("1D").apply(lambda x: get_busy_avg(x, self.busyHours)), True)
         else:
             print (">> insufficient data")
@@ -260,7 +261,7 @@ def get_page_dim(total):
 
 
 def draw_multi_charts (chartlist, main_title, outputfile):
-    fig = plt.figure(figsize=(11,8))
+    fig = plt.figure(figsize=(14,8.5))
     rows, cols = get_page_dim (len(chartlist))
     index = 1
     
@@ -273,9 +274,11 @@ def draw_multi_charts (chartlist, main_title, outputfile):
         ax.plot_date(ordinals,actual,'b-', label='Actual')
         ax.plot_date(ordinals,predicted,'r-', label='Predicted')
 
+        ax.xaxis.set_tick_params(labelsize=6)
         ax.xaxis.set_major_locator(DayLocator())
         ax.xaxis.set_major_formatter(DateFormatter('%Y-%b-%d'))
         ax.xaxis.set_minor_locator(HourLocator())
+        
         ax.autoscale_view()
         ax.grid(True)
         fig.autofmt_xdate()
