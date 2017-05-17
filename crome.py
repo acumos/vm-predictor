@@ -183,8 +183,7 @@ class CromeProcessor:
         return aae.mean()
 
         
-    def draw_charts_original (self, charts, filename):       
-        ch_list = []            # TEMP !!!
+    def draw_charts (self, charts, filename):       
         for chart in charts:
             df = charts[chart]["data"]
             title = self.target_col + ":  " + chart + "\n"
@@ -194,45 +193,35 @@ class CromeProcessor:
             title += "\nunit=" + self.resample_str + ", train=%dd, test=%dd" % (self.train_interval.days, self.predict_interval.days)
             outfile = self.compose_chart_name (filename, chart)
             draw_chart(title, df['predict'], df[self.target_col], df.index, outfile)
-            ch_list.append ((title, df['predict'], df[self.target_col], df.index))     # TEMP !!!
-        return ch_list
 
         
-    def draw_charts (self, charts, filename):
-        outfile = self.compose_chart_name2 (filename)
-        ch_list = []
-        for chart in charts:
-            df = charts[chart]["data"]
-            #title = self.target_col + ":  " + chart + "\n"
-            #title += filename
-            title = chart
-            if "error" in charts[chart]:
-                title += " (err=%5.3f)" % charts[chart]["error"]
-            #title += "unit=" + self.resample_str + ", train=%dd, test=%dd" % (self.train_interval.days, self.predict_interval.days)
-            ch_list.append ((title, df['predict'], df[self.target_col], df.index))
-        bigtitle = "%s %s unit=%s train=%dd test=%dd" % (filename, self.target_col, self.resample_str, self.train_interval.days, self.predict_interval.days)
-        draw_multi_charts (ch_list, bigtitle, outfile)
+    def draw_compound_chart (self, charts, filename):
+        if len(charts) > 0:
+            outfile = self.compose_chart_name (filename)
+            ch_list = []
+            for chart in charts:
+                df = charts[chart]["data"]
+                title = chart
+                if "error" in charts[chart]:
+                    title += " (err=%5.3f)" % charts[chart]["error"]
+                ch_list.append ((title, df['predict'], df[self.target_col], df.index))
+            bigtitle = "%s %s unit=%s train=%dd test=%dd" % (filename, self.target_col, self.resample_str, self.train_interval.days, self.predict_interval.days)
+            draw_multi_charts (ch_list, bigtitle, outfile)
         
         
-    def compose_chart_name(self, entity, chart_type, subscriber=None):
+    def compose_chart_name(self, entity, chart_type="", subscriber=None):
         output_path = join(self.png_base, self.target_col)
+        if chart_type:
+            chart_type = "-" + chart_type
         try:
             makedirs (output_path)
         except OSError:
             pass
         if subscriber:
-            return join(output_path, subscriber) + "-" + entity + "-" + chart_type + ".png"
+            return join(output_path, subscriber) + "-" + entity + chart_type + ".png"
         else:
-            return join(output_path, entity) + "-" + chart_type + ".png"
+            return join(output_path, entity) + chart_type + ".png"
         
-
-    def compose_chart_name2(self, entity):
-        output_path = join(self.png_base, self.target_col)
-        try:
-            makedirs (output_path)
-        except OSError:
-            pass
-        return join(output_path, entity) + ".png"
         
             
 def draw_chart (chart_title, predicted, actual, dates, png_filename):       # three pd.Series
@@ -294,7 +283,6 @@ def draw_multi_charts (chartlist, main_title, outputfile):
         legend = ax.legend(loc='upper right', shadow=True, fontsize=4)
         ax.set_title (chart_title)
         
-    #plt.title (main_title)
     fig.suptitle(main_title)
     fig.savefig(outputfile)
     plt.close()
@@ -305,25 +293,27 @@ def draw_multi_charts (chartlist, main_title, outputfile):
     
         
 if __name__ == "__main__":
-    #fname = "VM_data/ad78e88c-ebb3-487e-ab6b-2eef62d81c5f.csv"
-    #results = cp.process_file (fname)
-    #cp.draw_charts(results, basename(fname))
 
     import argparse
     parser = argparse.ArgumentParser(description = "CROME training and testing", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-t', '--target', help='target prediction column', default='cpu_usage')
     parser.add_argument('-d', '--dir', help = 'directory containing CSV files', type=str)
+    parser.add_argument('-c', '--compound', help = 'output single compound chart', action='store_true')
     parser.add_argument('-p', '--png_dir', help = 'destination directory for PNG files', default='./png')
     parser.add_argument('-n', '--max_files', help = 'process at most N files', type=int, default=1000000)
     parser.add_argument('files', nargs='+', help='list of CSV files to process')
     cfg = parser.parse_args()
-    
+        
     cp = CromeProcessor ('cpu_usage', png_base_path=cfg.png_dir)
     for fname in cfg.files[:cfg.max_files]:
         results = cp.process_file(fname)
-        cp.draw_charts(results, basename(fname))
+        if cfg.compound:
+            cp.draw_compound_chart(results, basename(fname))
+        else:
+            cp.draw_charts(results, basename(fname))
     
     
     
     
 
+    
