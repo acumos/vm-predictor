@@ -319,7 +319,7 @@ if __name__ == "__main__":
     if cfg.randomize:
         from random import shuffle
         shuffle (cfg.files)
-    cp = CromeProcessor ('cpu_usage', png_base_path=cfg.png_dir)
+    cp = CromeProcessor (cfg.target, png_base_path=cfg.png_dir)
     for fname in cfg.files[:cfg.max_files]:
         results = cp.process_CSVfile (fname)
         if cfg.compound:
