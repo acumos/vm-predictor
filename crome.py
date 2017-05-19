@@ -85,12 +85,17 @@ class CromeProcessor(object):
                
     
     def process_CSVfile (self, filename):
+        views = []
         df = pd.read_csv(filename)
         print (">> %s: %s rows" % (filename, len(df)))
-        df, features = self.transform_dataframe (df)
-        df_result = self.predict_sliding_windows (df, features)
-        return self.build_views (df_result)
-
+        if self.check_valid_target(df):
+            df, features = self.transform_dataframe (df)
+            df_result = self.predict_sliding_windows (df, features)
+            views = self.build_views (df_result)
+        else:
+            print (">> Aborting:  all target values are identical.")
+        return views
+        
     
     def transform_dataframe (self, df):       # could be a pipeline
         # 1. convert to datetime index
@@ -101,9 +106,10 @@ class CromeProcessor(object):
         df.drop (self.date_col, axis=1, inplace=True)
         df.drop (DT, axis=1, inplace=True)
         
+        
         # 2. re-sample at desired interval, e.g. "15min" or "1H".  See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
         if self.resample_str:
-            df = df.resample (self.resample_str).mean()          # may use 'sum' here instead of 'mean' !!
+            df = df.resample (self.resample_str).mean().fillna(method='pad')
         
         # 3. add time features
         df['month'] =  df.index.month
@@ -118,7 +124,20 @@ class CromeProcessor(object):
         # TO DO :  drop all columns which are not target or features  ??
         return df, [u'month', u'day', u'weekday', u'hour', u'minute']
 
-    
+
+    def check_valid_target (self, df):
+        vc = df[self.target_col].value_counts()
+        if len(vc) < 2:
+            return False
+        valid = 0
+        for idx,val in vc.iteritems():
+            if val > 1:
+                valid += 1
+                if valid > 1:
+                    return True
+        return False
+
+        
     def predict_sliding_windows (self, df, feat_cols):        # presumed that the incoming dataframe contains ONLY rows of interest
         train_start = df.index[0]
         result = pd.DataFrame()
@@ -136,17 +155,20 @@ class CromeProcessor(object):
                 break
                 
             print (">>   train/predict sizes: ", len(df_train), len(df_test))
-            df_train.to_csv(self.training_file_name, index=False)
-            df_test.to_csv(self.testing_file_name, index=False)
-            
-            preds, self.predict_col = H2O_train_and_predict(self.training_file_name, self.testing_file_name, self.target_col, feat_cols)
-            
-            # append to result dataframe
-            kwargs = {self.predict_col : preds[self.predict_col].values}
-            df_test = df_test.assign (**kwargs)
-            result = pd.concat([result, df_test[[self.predict_col, self.target_col]]])
-            
-            #remove_files ([training_file_name, testing_file_name])
+            if self.check_valid_target (df_train) and self.check_valid_target (df_test):
+                df_train.to_csv(self.training_file_name, index=False)
+                df_test.to_csv(self.testing_file_name, index=False)
+                
+                preds, self.predict_col = H2O_train_and_predict(self.training_file_name, self.testing_file_name, self.target_col, feat_cols)
+                
+                # append to result dataframe
+                kwargs = {self.predict_col : preds[self.predict_col].values}
+                df_test = df_test.assign (**kwargs)
+                result = pd.concat([result, df_test[[self.predict_col, self.target_col]]])
+            else:
+                print (">>   invalid data")
+                
+            #remove_files ([training_file_name, testing_file_name])   ??
             train_start += self.predict_interval
             
         return result
@@ -158,7 +180,7 @@ class CromeProcessor(object):
             if self.showRaw:
                 self.add_view (output, "original", df, False)
             if self.pctile:
-                self.add_view (output, "percentile_%s" % self.pctile, df.resample("1D").apply(lambda x: np.percentile(x, self.pctile)), True)
+                self.add_view (output, "percentile_%s" % self.pctile, df.resample("1D").apply(lambda x: np.nanpercentile(x, self.pctile)), True)
             if self.STD:
                 self.add_view (output, "std", df.resample("1D").apply(lambda x: np.std(x)), False)
             if self.VAR:
@@ -182,7 +204,7 @@ class CromeProcessor(object):
 
     def calc_AAE (self, df):               # input:  two pd.Series
         df_tmp = df
-        #df_tmp.index = range(len(df_tmp))        # quash the DatetimeIndex:  it causes problems
+        #df_tmp.index = range(len(df_tmp))        # may need to quash the DatetimeIndex:  it sometimes causes problems
         actual = df_tmp[self.target_col]
         predictions = df_tmp["predict"]
         numerator = abs(predictions - actual)
