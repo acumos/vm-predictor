@@ -91,7 +91,7 @@ class CromeProcessor(object):
         self.STD = True
         self.VAR = True
         self.showRaw = True
-        self.one_second = pd.Timedelta('1 second')
+        self.smidgen = pd.Timedelta('1 second')
                
     
     def process_CSVfile (self, filename):
@@ -156,11 +156,11 @@ class CromeProcessor(object):
             predict_start = train_stop
             predict_stop = predict_start + self.predict_interval
             
-            df_train = df[train_start : train_stop - self.one_second]       # DatetimeIndex slices are inclusive
+            df_train = df[train_start : train_stop - self.smidgen]       # DatetimeIndex slices are inclusive
             if len(df_train) < self.min_train_rows:
                 break
                 
-            df_test = df[predict_start : predict_stop - self.one_second]    # DatetimeIndex slices are inclusive
+            df_test = df[predict_start : predict_stop - self.smidgen]    # DatetimeIndex slices are inclusive
             if len(df_test) < self.min_predict_rows:
                 break
 
@@ -265,17 +265,19 @@ class CromeProcessor(object):
         
             
 def draw_chart (chart_title, predicted, actual, dates, png_filename):       # three pd.Series
-    fig = plt.figure(figsize=(11,8.5))
+    chart_width, chart_height = 11, 8.5
+    fig = plt.figure(figsize=(chart_width,chart_height))
+    day_count = (dates[-1] - dates[0]).days    
     ax = fig.add_subplot(111)
-    ordinals = [matplotlib.dates.date2num(d) for d in dates] 
     
+    ordinals = [matplotlib.dates.date2num(d) for d in dates] 
     ax.plot_date(ordinals,actual,'b-', label='Actual')
     ax.plot_date(ordinals,predicted,'r-', label='Predicted')
 
-    ax.xaxis.set_major_locator(DayLocator())
+    ax.xaxis.set_major_locator(DayLocator(interval=compute_date_step(day_count, chart_width)))
     ax.xaxis.set_major_formatter(DateFormatter('%Y-%b-%d'))
     locator = HourLocator()
-    locator.MAXTICKS = (dates[-1] - dates[0]).days * 24
+    locator.MAXTICKS = day_count * 24
     ax.xaxis.set_minor_locator(locator)
 
     ax.autoscale_view()
@@ -286,40 +288,29 @@ def draw_chart (chart_title, predicted, actual, dates, png_filename):       # th
     fig.savefig(png_filename)
     plt.close()
     print (">>   wrote: ", png_filename)
+
     
-
-
-
-def get_page_dim(total):
-    rows, cols = 1,1
-    while rows * cols < total:
-        if cols == rows:
-            cols += 1
-        else:
-            rows += 1
-    return rows, cols
-
-
-
+    
 def draw_multi_charts (chartlist, main_title, outputfile):
-    fig = plt.figure(figsize=(14,8.5))
+    chart_width, chart_height = 14, 8.5
+    fig = plt.figure(figsize=(chart_width,chart_height))
     rows, cols = get_page_dim (len(chartlist))
     index = 1
-    
+
     for (chart_title, predicted, actual, dates) in chartlist:
         ax = fig.add_subplot(rows, cols, index)
         index += 1
         
+        day_count = (dates[-1] - dates[0]).days    
         ordinals = [matplotlib.dates.date2num(d) for d in dates] 
-        
         ax.plot_date(ordinals,actual,'b-', label='Actual')
         ax.plot_date(ordinals,predicted,'r-', label='Predicted')
 
         ax.xaxis.set_tick_params(labelsize=6)
-        ax.xaxis.set_major_locator(DayLocator())
+        ax.xaxis.set_major_locator(DayLocator(interval=compute_date_step(day_count, float(chart_width) / cols)))
         ax.xaxis.set_major_formatter(DateFormatter('%Y-%b-%d'))
         locator = HourLocator()
-        locator.MAXTICKS = (dates[-1] - dates[0]).days * 24
+        locator.MAXTICKS = day_count * 24
         ax.xaxis.set_minor_locator(locator)
         
         ax.autoscale_view()
@@ -335,6 +326,23 @@ def draw_multi_charts (chartlist, main_title, outputfile):
     print (">>   wrote: ", outputfile)
 
 
+def get_page_dim(total):
+    rows, cols = 1,1
+    while rows * cols < total:
+        if cols == rows:
+            cols += 1
+        else:
+            rows += 1
+    return rows, cols
+
+
+def compute_date_step (day_count, chart_inches):
+    optimal_dates_per_inch = 2.5
+    d_p_i = day_count / chart_inches
+    factor = d_p_i / optimal_dates_per_inch
+    step = max (int(factor + 0.5), 1)
+    return step
+    
 
     
         
