@@ -14,20 +14,29 @@ import datetime
 from matplotlib.dates import YearLocator, MonthLocator, DayLocator, HourLocator, DateFormatter
 
     
-def H2O_train_and_predict(train_path, test_path, target_col, feat_cols):
-    print (">> Building model for target ", target_col)
+h2o.init()
+h2o.h2o.no_progress()    
     
-    h2o.init()
+def H2O_train_and_predict(train_path, test_path, target_col, feat_cols, verbose=False):
+    if verbose:
+        print (">> Building model for target ", target_col)
+    
+    #h2o.init()
     rf_model = H2ORandomForestEstimator (response_column=target_col, ntrees=20)
-    print (">>   importing:", train_path)
+    if verbose:
+        print (">>   importing:", train_path)
     train_frame = h2o.import_file(path=train_path)    
-    print (">>   importing:", test_path)
+    
+    if verbose:
+        print (">>   importing:", test_path)
     test_frame = h2o.import_file(path=test_path)    
     
-    print (">>   training...")
+    if verbose:
+        print (">>   training...")
     res = rf_model.train (x=feat_cols, y=target_col, training_frame=train_frame)
     
-    print (">>   predicting...")
+    if verbose:
+        print (">>   predicting...")
     preds = rf_model.predict(test_frame)
 
     predicted = preds.as_data_frame()    
@@ -65,7 +74,7 @@ def get_busy_avg (arr, period):
           
 class CromeProcessor(object):
     # See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases for resample strings
-    def __init__ (self, target_col, date_col='DATETIMEUTC', train_size_days=31, predict_size_days=1, resample_str="15min", png_base_path="." ):
+    def __init__ (self, target_col, date_col='DATETIMEUTC', train_size_days=31, predict_size_days=1, resample_str="15min", png_base_path=".", min_train=300 ):
         self.target_col = target_col
         self.predict_col = ""                   # platform specific
         self.train_interval = pd.Timedelta(days=train_size_days)
@@ -73,7 +82,7 @@ class CromeProcessor(object):
         self.resample_str = resample_str
         self.png_base = png_base_path
         self.date_col=date_col
-        self.min_train_rows = 300
+        self.min_train_rows = min_train
         self.min_predict_rows = 1
         self.pctile = 95
         self.training_file_name = "./train.csv"
@@ -82,6 +91,7 @@ class CromeProcessor(object):
         self.STD = True
         self.VAR = True
         self.showRaw = True
+        self.one_second = pd.Timedelta('1 second')
                
     
     def process_CSVfile (self, filename):
@@ -146,16 +156,16 @@ class CromeProcessor(object):
             predict_start = train_stop
             predict_stop = predict_start + self.predict_interval
             
-            df_train = df[train_start:train_stop]
+            df_train = df[train_start : train_stop - self.one_second]       # DatetimeIndex slices are inclusive
             if len(df_train) < self.min_train_rows:
                 break
                 
-            df_test = df[predict_start:predict_stop]
+            df_test = df[predict_start : predict_stop - self.one_second]    # DatetimeIndex slices are inclusive
             if len(df_test) < self.min_predict_rows:
                 break
-                
-            print (">>   train/predict sizes: ", len(df_train), len(df_test))
-            if self.check_valid_target (df_train) and self.check_valid_target (df_test):
+
+            print (">>   train %s rows from %s to %s;  predict %s rows from %s to %s" % (len(df_train), train_start, train_stop, len(df_test), predict_start, predict_stop))
+            if self.check_valid_target (df_train):  #and self.check_valid_target (df_test):
                 df_train.to_csv(self.training_file_name, index=False)
                 df_test.to_csv(self.testing_file_name, index=False)
                 
@@ -190,7 +200,7 @@ class CromeProcessor(object):
                 self.add_view (output, "busy_hour_%sH" % self.busyHours, df_hour.resample("1D").apply(lambda x: get_busy_hour(x, self.busyHours).hour), False)
                 self.add_view (output, "busy_avg_%sH" % self.busyHours, df_hour.resample("1D").apply(lambda x: get_busy_avg(x, self.busyHours)), True)
         else:
-            print (">> insufficient data")
+            print (">> build_views:  insufficient data")
         return output
         
 
@@ -222,7 +232,7 @@ class CromeProcessor(object):
                 title += "  (err=%s)" % chart["error"]
             title += "\nunit=" + self.resample_str + ", train=%dd, test=%dd" % (self.train_interval.days, self.predict_interval.days)
             outfile = self.compose_chart_name (filename, chart["type"])
-            draw_chart(title, df['predict'], df[self.target_col], df.index, outfile)
+            draw_chart(title, df[self.predict_col], df[self.target_col], df.index, outfile)
 
 
     def draw_compound_chart (self, charts, filename):
@@ -234,7 +244,7 @@ class CromeProcessor(object):
                 title = chart["type"]
                 if "error" in chart:
                     title += " (err=%5.3f)" % chart["error"]
-                ch_list.append ((title, df['predict'], df[self.target_col], df.index))
+                ch_list.append ((title, df[self.predict_col], df[self.target_col], df.index))
             bigtitle = "%s %s unit=%s train=%dd test=%dd" % (self.target_col, filename, self.resample_str, self.train_interval.days, self.predict_interval.days)
             draw_multi_charts (ch_list, bigtitle, outfile)
             
@@ -255,7 +265,7 @@ class CromeProcessor(object):
         
             
 def draw_chart (chart_title, predicted, actual, dates, png_filename):       # three pd.Series
-    fig = plt.figure(figsize=(11,8))
+    fig = plt.figure(figsize=(11,8.5))
     ax = fig.add_subplot(111)
     ordinals = [matplotlib.dates.date2num(d) for d in dates] 
     
@@ -264,11 +274,13 @@ def draw_chart (chart_title, predicted, actual, dates, png_filename):       # th
 
     ax.xaxis.set_major_locator(DayLocator())
     ax.xaxis.set_major_formatter(DateFormatter('%Y-%b-%d'))
-    ax.xaxis.set_minor_locator(HourLocator())
+    locator = HourLocator()
+    locator.MAXTICKS = (dates[-1] - dates[0]).days * 24
+    ax.xaxis.set_minor_locator(locator)
+
     ax.autoscale_view()
     ax.grid(True)
     fig.autofmt_xdate()
-    
     legend = ax.legend(loc='upper right', shadow=True)
     plt.title (chart_title)
     fig.savefig(png_filename)
@@ -306,7 +318,9 @@ def draw_multi_charts (chartlist, main_title, outputfile):
         ax.xaxis.set_tick_params(labelsize=6)
         ax.xaxis.set_major_locator(DayLocator())
         ax.xaxis.set_major_formatter(DateFormatter('%Y-%b-%d'))
-        ax.xaxis.set_minor_locator(HourLocator())
+        locator = HourLocator()
+        locator.MAXTICKS = (dates[-1] - dates[0]).days * 24
+        ax.xaxis.set_minor_locator(locator)
         
         ax.autoscale_view()
         ax.grid(True)
@@ -329,28 +343,32 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description = "CROME training and testing", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-t', '--target', help='target prediction column', default='cpu_usage')
-    parser.add_argument('-d', '--dir', help = 'directory containing CSV files', type=str)
     parser.add_argument('-c', '--compound', help = 'output compound charts', action='store_true')
     parser.add_argument('-s', '--separate', help = 'output separate charts', action='store_true')
     parser.add_argument('-r', '--randomize', help = 'randomize file list', action='store_true')
     parser.add_argument('-p', '--png_dir', help = 'destination directory for PNG files', default='./png')
     parser.add_argument('-n', '--max_files', help = 'process at most N files', type=int, default=1000000)
+    parser.add_argument('-m', '--min_train', help = 'minimum # samples in a training set', type=int, default=300)
+    parser.add_argument('-D', '--date_col', help='column to use for datetime index', default='DATETIMEUTC')
+    parser.add_argument('-T', '--train_days', help = 'size of training set in days', type=int, default=31)
+    parser.add_argument('-P', '--predict_days', help = 'number of days to predict per iteration', type=int, default=1)
+    parser.add_argument('-S', '--sample_size', help='desired duration of train/predict units', default='15min')
     parser.add_argument('files', nargs='+', help='list of CSV files to process')
+    
     cfg = parser.parse_args()
 
     if cfg.randomize:
         from random import shuffle
         shuffle (cfg.files)
-    cp = CromeProcessor (cfg.target, png_base_path=cfg.png_dir)
+
+    cp = CromeProcessor (cfg.target, png_base_path=cfg.png_dir, date_col=cfg.date_col, train_size_days=cfg.train_days, 
+                         predict_size_days=cfg.predict_days, resample_str=cfg.sample_size, min_train=cfg.min_train)
+
     for fname in cfg.files[:cfg.max_files]:
         results = cp.process_CSVfile (fname)
         if cfg.compound:
             cp.draw_compound_chart(results, basename(fname))
         if cfg.separate:
             cp.draw_charts(results, basename(fname))
-    
-    
-    
-    
+   
 
-    
