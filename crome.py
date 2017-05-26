@@ -50,8 +50,7 @@ def H2O_train_and_predict(train_path, test_path, target_col, feat_cols, verbose=
     
 
 def get_busy_hour (arr, period):
-    high = None
-    best = None
+    best, high = None, None
     for x in range(len(arr)):
         score = np.mean(arr.iloc[x : x+period])
         if not high or score > high:
@@ -60,8 +59,7 @@ def get_busy_hour (arr, period):
           
 
 def get_busy_avg (arr, period):
-    high = None
-    best = None
+    best, high = None, None
     for x in range(len(arr)):
         score = np.mean(arr.iloc[x : x+period])
         if not high or score > high:
@@ -74,7 +72,8 @@ def get_busy_avg (arr, period):
           
 class CromeProcessor(object):
     # See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases for resample strings
-    def __init__ (self, target_col, date_col='DATETIMEUTC', train_size_days=31, predict_size_days=1, resample_str="15min", png_base_path=".", min_train=300 ):
+    def __init__ (self, target_col, date_col='DATETIMEUTC', train_size_days=31, predict_size_days=1, resample_str="15min", 
+                  png_base_path=".", min_train=300, feats=[]):
         self.target_col = target_col
         self.predict_col = ""                   # platform specific
         self.train_interval = pd.Timedelta(days=train_size_days)
@@ -93,19 +92,39 @@ class CromeProcessor(object):
         self.showRaw = True
         self.smidgen = pd.Timedelta('1 second')
         self.one_hour = pd.Timedelta('1 hour')
+        self.features = feats
+        if len(self.features) < 1:  
+            print ("CromeProcessor WARNING:  no features defined")
                
     
     def process_CSVfile (self, filename):
         views = []
         df = pd.read_csv(filename)
         print (">> %s: %s rows" % (filename, len(df)))
-        df, features = self.transform_dataframe (df)
+        df = self.transform_dataframe (df)
         if self.check_valid_target(df):
-            df_result = self.predict_sliding_windows (df, features)
+            df_result = self.predict_sliding_windows (df)
             views = self.build_views (df_result)
         else:
             print (">>   Aborting:  all target values are identical.")
         return views
+
+
+    def add_derived_features (self, df):
+        for feat in self.features:
+            if feat == 'month':
+                df[feat] = df.index.month
+            elif feat == 'day':
+                df[feat] = df.index.day
+            elif feat == 'weekday':
+                df[feat] = df.index.weekday
+            elif feat == 'hour':
+                df[feat] = df.index.hour
+            elif feat == 'minute':
+                df[feat] = df.index.minute
+            elif feat.startswith ('hist-'):              # history features are of the form "hist-xxx" where xxx is a valid Timedelta string such as '1H'
+                df[feat] = df[self.target_col].shift(freq=pd.Timedelta (feat[5:]))
+        return df
         
     
     def transform_dataframe (self, df):       # could be a pipeline
@@ -121,27 +140,15 @@ class CromeProcessor(object):
         if self.resample_str:
             df = df.resample (self.resample_str).mean().fillna(method='pad')
         
-        # 3. add time features
-        df['month'] =  df.index.month
-        df['day'] =  df.index.day
-        df['weekday'] = df.index.weekday
-        df['hour'] = df.index.hour
-        df['minute'] = df.index.minute
-        features = [u'day', u'weekday', u'hour', u'minute']
-        
-        df['hist1'] = df[self.target_col].shift(freq=self.one_hour)
-        df['hist2'] = df[self.target_col].shift(freq= 2 * self.one_hour)
-        df['hist4'] = df[self.target_col].shift(freq= 4 * self.one_hour)
-        df['hist8'] = df[self.target_col].shift(freq= 8 * self.one_hour)
-        features += ['hist1', 'hist2', 'hist4', 'hist8']
-
+        # 3. get features
+        df = self.add_derived_features(df)
         pre_drop = len(df)
-        df.dropna(subset=features, inplace=True)
+        df.dropna(subset=self.features, inplace=True)
         if len(df) <  pre_drop/2:
             print (">>   Warning:  %s rows dropped during transform operation." % (pre_drop-len(df), )) 
         
         # TO DO :  drop all columns which are not target or features  ??
-        return df, features
+        return df
 
 
     def check_valid_target (self, df):
@@ -157,7 +164,7 @@ class CromeProcessor(object):
         return False
 
         
-    def predict_sliding_windows (self, df, feat_cols):        # presumed that the incoming dataframe contains ONLY rows of interest
+    def predict_sliding_windows (self, df):        # presumed that the incoming dataframe contains ONLY rows of interest
         train_start = df.index[0]
         result = pd.DataFrame()
         while True:
@@ -178,7 +185,7 @@ class CromeProcessor(object):
                 df_train.to_csv(self.training_file_name, index=False)
                 df_test.to_csv(self.testing_file_name, index=False)
                 
-                preds, self.predict_col = H2O_train_and_predict(self.training_file_name, self.testing_file_name, self.target_col, feat_cols)
+                preds, self.predict_col = H2O_train_and_predict(self.training_file_name, self.testing_file_name, self.target_col, self.features)
                 
                 # append to result dataframe
                 kwargs = {self.predict_col : preds[self.predict_col].values}
@@ -239,7 +246,8 @@ class CromeProcessor(object):
             title += filename
             if "error" in chart:
                 title += "  (err=%s)" % chart["error"]
-            title += "\nunit=" + self.resample_str + ", train=%dd, test=%dd" % (self.train_interval.days, self.predict_interval.days)
+            title += "\n" + self.resample_str + " train %dd test %dd" % (self.train_interval.days, self.predict_interval.days)
+            title += " [%s]" % " ".join(self.features)
             outfile = self.compose_chart_name (filename, chart["type"])
             draw_chart(title, df[self.predict_col], df[self.target_col], df.index, outfile)
 
@@ -254,7 +262,8 @@ class CromeProcessor(object):
                 if "error" in chart:
                     title += " (err=%5.3f)" % chart["error"]
                 ch_list.append ((title, df[self.predict_col], df[self.target_col], df.index))
-            bigtitle = "%s %s unit=%s train=%dd test=%dd" % (self.target_col, filename, self.resample_str, self.train_interval.days, self.predict_interval.days)
+            bigtitle = "%s %s %s train=%dd test=%dd" % (self.target_col, filename, self.resample_str, self.train_interval.days, self.predict_interval.days)
+            bigtitle += " [%s]" % " ".join(self.features)
             draw_multi_charts (ch_list, bigtitle, outfile)
             
         
@@ -371,6 +380,7 @@ if __name__ == "__main__":
     parser.add_argument('-P', '--predict_days', help = 'number of days to predict per iteration', type=int, default=1)
     parser.add_argument('-S', '--sample_size', help='desired duration of train/predict units.  See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases', default='15min')
     parser.add_argument('files', nargs='+', help='list of CSV files to process')
+    parser.add_argument('-f', '--features', nargs='+', help='list of features to use', default=['day', 'weekday', 'hour', 'minute'])
     
     cfg = parser.parse_args()
 
@@ -379,7 +389,7 @@ if __name__ == "__main__":
         shuffle (cfg.files)
 
     cp = CromeProcessor (cfg.target, png_base_path=cfg.png_dir, date_col=cfg.date_col, train_size_days=cfg.train_days, 
-                         predict_size_days=cfg.predict_days, resample_str=cfg.sample_size, min_train=cfg.min_train)
+                         predict_size_days=cfg.predict_days, resample_str=cfg.sample_size, min_train=cfg.min_train, feats=cfg.features)
 
     for fname in cfg.files[:cfg.max_files]:
         if exists(cp.compose_chart_name(basename(fname))) or exists(cp.compose_chart_name(basename(fname), 'original')):
