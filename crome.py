@@ -92,30 +92,30 @@ class CromeProcessor(object):
         self.VAR = True
         self.showRaw = True
         self.smidgen = pd.Timedelta('1 second')
+        self.one_hour = pd.Timedelta('1 hour')
                
     
     def process_CSVfile (self, filename):
         views = []
         df = pd.read_csv(filename)
         print (">> %s: %s rows" % (filename, len(df)))
+        df, features = self.transform_dataframe (df)
         if self.check_valid_target(df):
-            df, features = self.transform_dataframe (df)
             df_result = self.predict_sliding_windows (df, features)
             views = self.build_views (df_result)
         else:
-            print (">> Aborting:  all target values are identical.")
+            print (">>   Aborting:  all target values are identical.")
         return views
         
     
     def transform_dataframe (self, df):       # could be a pipeline
-        # 1. convert to datetime index
+        # 1. convert to datetime index & sort
         DT = 'DT'
         df[DT] = pd.to_datetime(df[self.date_col])
         df = df.sort_values(DT)
         df.index = pd.DatetimeIndex(df['DT'])    
         df.drop (self.date_col, axis=1, inplace=True)
         df.drop (DT, axis=1, inplace=True)
-        
         
         # 2. re-sample at desired interval, e.g. "15min" or "1H".  See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
         if self.resample_str:
@@ -127,12 +127,21 @@ class CromeProcessor(object):
         df['weekday'] = df.index.weekday
         df['hour'] = df.index.hour
         df['minute'] = df.index.minute
+        features = [u'day', u'weekday', u'hour', u'minute']
         
-        # 4. add any other features here (including any "pass-through" features)
-        # ...
+        df['hist1'] = df[self.target_col].shift(freq=self.one_hour)
+        df['hist2'] = df[self.target_col].shift(freq= 2 * self.one_hour)
+        df['hist4'] = df[self.target_col].shift(freq= 4 * self.one_hour)
+        df['hist8'] = df[self.target_col].shift(freq= 8 * self.one_hour)
+        features += ['hist1', 'hist2', 'hist4', 'hist8']
+
+        pre_drop = len(df)
+        df.dropna(subset=features, inplace=True)
+        if len(df) <  pre_drop/2:
+            print (">>   Warning:  %s rows dropped during transform operation." % (pre_drop-len(df), )) 
         
         # TO DO :  drop all columns which are not target or features  ??
-        return df, [u'month', u'day', u'weekday', u'hour', u'minute']
+        return df, features
 
 
     def check_valid_target (self, df):
@@ -267,7 +276,7 @@ class CromeProcessor(object):
 def draw_chart (chart_title, predicted, actual, dates, png_filename):       # three pd.Series
     chart_width, chart_height = 11, 8.5
     fig = plt.figure(figsize=(chart_width,chart_height))
-    day_count = (dates[-1] - dates[0]).days    
+    day_count = 1 + (dates[-1] - dates[0]).days    
     ax = fig.add_subplot(111)
     
     ordinals = [matplotlib.dates.date2num(d) for d in dates] 
@@ -277,7 +286,7 @@ def draw_chart (chart_title, predicted, actual, dates, png_filename):       # th
     ax.xaxis.set_major_locator(DayLocator(interval=compute_date_step(day_count, chart_width)))
     ax.xaxis.set_major_formatter(DateFormatter('%Y-%b-%d'))
     locator = HourLocator()
-    locator.MAXTICKS = day_count * 24
+    locator.MAXTICKS = (day_count + 3) * 24
     ax.xaxis.set_minor_locator(locator)
 
     ax.autoscale_view()
@@ -301,7 +310,7 @@ def draw_multi_charts (chartlist, main_title, outputfile):
         ax = fig.add_subplot(rows, cols, index)
         index += 1
         
-        day_count = (dates[-1] - dates[0]).days    
+        day_count = 1 + (dates[-1] - dates[0]).days    
         ordinals = [matplotlib.dates.date2num(d) for d in dates] 
         ax.plot_date(ordinals,actual,'b-', label='Actual')
         ax.plot_date(ordinals,predicted,'r-', label='Predicted')
@@ -310,7 +319,7 @@ def draw_multi_charts (chartlist, main_title, outputfile):
         ax.xaxis.set_major_locator(DayLocator(interval=compute_date_step(day_count, float(chart_width) / cols)))
         ax.xaxis.set_major_formatter(DateFormatter('%Y-%b-%d'))
         locator = HourLocator()
-        locator.MAXTICKS = day_count * 24
+        locator.MAXTICKS = (day_count + 3) * 24
         ax.xaxis.set_minor_locator(locator)
         
         ax.autoscale_view()
@@ -360,7 +369,7 @@ if __name__ == "__main__":
     parser.add_argument('-D', '--date_col', help='column to use for datetime index', default='DATETIMEUTC')
     parser.add_argument('-T', '--train_days', help = 'size of training set in days', type=int, default=31)
     parser.add_argument('-P', '--predict_days', help = 'number of days to predict per iteration', type=int, default=1)
-    parser.add_argument('-S', '--sample_size', help='desired duration of train/predict units', default='15min')
+    parser.add_argument('-S', '--sample_size', help='desired duration of train/predict units.  See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases', default='15min')
     parser.add_argument('files', nargs='+', help='list of CSV files to process')
     
     cfg = parser.parse_args()
@@ -373,10 +382,13 @@ if __name__ == "__main__":
                          predict_size_days=cfg.predict_days, resample_str=cfg.sample_size, min_train=cfg.min_train)
 
     for fname in cfg.files[:cfg.max_files]:
-        results = cp.process_CSVfile (fname)
-        if cfg.compound:
-            cp.draw_compound_chart(results, basename(fname))
-        if cfg.separate:
-            cp.draw_charts(results, basename(fname))
+        if exists(cp.compose_chart_name(basename(fname))) or exists(cp.compose_chart_name(basename(fname), 'original')):
+            print (">> %s:  chart already exists, skipped" % fname)
+        else:
+            results = cp.process_CSVfile (fname)
+            if cfg.compound:
+                cp.draw_compound_chart(results, basename(fname))
+            if cfg.separate:
+                cp.draw_charts(results, basename(fname))
    
 
