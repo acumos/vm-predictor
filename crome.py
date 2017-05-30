@@ -21,7 +21,6 @@ def H2O_train_and_predict(train_path, test_path, target_col, feat_cols, verbose=
     if verbose:
         print (">> Building model for target ", target_col)
     
-    #h2o.init()
     rf_model = H2ORandomForestEstimator (response_column=target_col, ntrees=20)
     if verbose:
         print (">>   importing:", train_path)
@@ -44,6 +43,7 @@ def H2O_train_and_predict(train_path, test_path, target_col, feat_cols, verbose=
     h2o.remove(train_frame.frame_id)
     h2o.remove(test_frame.frame_id)
     h2o.remove(preds.frame_id)
+    h2o.remove(rf_model)
 
     return predicted, 'predict'                 # H2O column name
 
