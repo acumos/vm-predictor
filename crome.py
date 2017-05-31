@@ -123,7 +123,13 @@ class CromeProcessor(object):
             elif feat == 'minute':
                 df[feat] = df.index.minute
             elif feat.startswith ('hist-'):              # history features are of the form "hist-xxx" where xxx is a valid Timedelta string such as '1H'
-                df[feat] = df[self.target_col].shift(freq=pd.Timedelta (feat[5:]))
+                params = feat.split("-")
+                p1 = params[1]                           # first parameter is the shift (how long ago)
+                if len(params) > 2:
+                    p2 = feat.split("-")[2]              # 2nd param if present is the size of the window
+                    df[feat] = df[self.target_col].shift(freq=pd.Timedelta(p1)).rolling(p2).mean()
+                else:
+                    df[feat] = df[self.target_col].shift(freq=pd.Timedelta (p1))
         return df
         
     
