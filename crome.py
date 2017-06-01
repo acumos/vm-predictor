@@ -5,6 +5,9 @@ import numpy as np
 import h2o
 from h2o.estimators.random_forest import H2ORandomForestEstimator
 
+from sklearn.ensemble import RandomForestRegressor        
+from sklearn.model_selection import cross_val_score
+
 from os import listdir, makedirs
 from os.path import isfile, join, basename, exists
 import matplotlib 
@@ -47,6 +50,18 @@ def H2O_train_and_predict(train_path, test_path, target_col, feat_cols, verbose=
 
     return predicted, 'predict'                 # H2O column name
 
+
+
+def SK_train_and_predict(train_path, test_path, target_col, feat_cols, verbose=False):
+    df_train = pd.read_csv(train_path)
+    df_predict = pd.read_csv(test_path)
+    rf = RandomForestRegressor(n_estimators=20)
+    rf.fit(df_train[feat_cols], df_train[target_col])
+    predicted = rf.predict(df_predict[feat_cols])
+    return pd.DataFrame({'predict':predicted}), 'predict'
+
+
+
     
 
 def get_busy_hour (arr, period):
@@ -73,7 +88,7 @@ def get_busy_avg (arr, period):
 class CromeProcessor(object):
     # See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases for resample strings
     def __init__ (self, target_col, date_col='DATETIMEUTC', train_size_days=31, predict_size_days=1, resample_str="15min", 
-                  png_base_path=".", min_train=300, feats=[]):
+                  png_base_path=".", min_train=300, feats=[], platform="H2O"):
         self.target_col = target_col
         self.predict_col = ""                   # platform specific
         self.train_interval = pd.Timedelta(days=train_size_days)
@@ -95,8 +110,11 @@ class CromeProcessor(object):
         self.features = feats
         if len(self.features) < 1:  
             print ("CromeProcessor WARNING:  no features defined")
-               
-    
+        if platform == "H2O":
+            self.learn_func = H2O_train_and_predict
+        else:
+            self.learn_func = SK_train_and_predict
+        
     def process_CSVfile (self, filename):
         views = []
         df = pd.read_csv(filename)
@@ -191,7 +209,7 @@ class CromeProcessor(object):
                 df_train.to_csv(self.training_file_name, index=False)
                 df_test.to_csv(self.testing_file_name, index=False)
                 
-                preds, self.predict_col = H2O_train_and_predict(self.training_file_name, self.testing_file_name, self.target_col, self.features)
+                preds, self.predict_col = self.learn_func (self.training_file_name, self.testing_file_name, self.target_col, self.features)
                 
                 # append to result dataframe
                 kwargs = {self.predict_col : preds[self.predict_col].values}
@@ -387,6 +405,7 @@ if __name__ == "__main__":
     parser.add_argument('-S', '--sample_size', help='desired duration of train/predict units.  See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases', default='15min')
     parser.add_argument('files', nargs='+', help='list of CSV files to process')
     parser.add_argument('-f', '--features', nargs='+', help='list of features to use', default=['day', 'weekday', 'hour', 'minute'])
+    parser.add_argument('-M', '--ML_platform', help='specify machine learning platform to use', default='H2O')
     
     cfg = parser.parse_args()
 
@@ -394,8 +413,8 @@ if __name__ == "__main__":
         from random import shuffle
         shuffle (cfg.files)
 
-    cp = CromeProcessor (cfg.target, png_base_path=cfg.png_dir, date_col=cfg.date_col, train_size_days=cfg.train_days, 
-                         predict_size_days=cfg.predict_days, resample_str=cfg.sample_size, min_train=cfg.min_train, feats=cfg.features)
+    cp = CromeProcessor (cfg.target, png_base_path=cfg.png_dir, date_col=cfg.date_col, train_size_days=cfg.train_days, predict_size_days=cfg.predict_days, 
+                         resample_str=cfg.sample_size, min_train=cfg.min_train, feats=cfg.features, platform=cfg.ML_platform)
 
     for fname in cfg.files[:cfg.max_files]:
         if exists(cp.compose_chart_name(basename(fname))) or exists(cp.compose_chart_name(basename(fname), 'original')):
