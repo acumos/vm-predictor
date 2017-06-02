@@ -7,6 +7,7 @@ from h2o.estimators.random_forest import H2ORandomForestEstimator
 
 from sklearn.ensemble import RandomForestRegressor        
 from sklearn.model_selection import cross_val_score
+from sklearn.preprocessing import StandardScaler
 
 from os import listdir, makedirs
 from os.path import isfile, join, basename, exists
@@ -62,8 +63,17 @@ def SK_train_and_predict(train_path, test_path, target_col, feat_cols, verbose=F
 
 
 
+def Scaler_train_and_predict(train_path, test_path, target_col, feat_cols, verbose=False):
+    df_train = pd.read_csv(train_path)
+    df_predict = pd.read_csv(test_path)
+    x_scaler = StandardScaler().fit(df_train[feat_cols])
+    Xt = x_scaler.transform(df_train[feat_cols])
+    rf = RandomForestRegressor(n_estimators=20).fit(Xt, df_train[target_col])
+    predicted = rf.predict(x_scaler.transform(df_predict[feat_cols]))
+    return pd.DataFrame({'predict':predicted}), 'predict'
     
 
+    
 def get_busy_hour (arr, period):
     best, high = None, None
     for x in range(len(arr)):
@@ -112,9 +122,12 @@ class CromeProcessor(object):
             print ("CromeProcessor WARNING:  no features defined")
         if platform == "H2O":
             self.learn_func = H2O_train_and_predict
-        else:
+        elif platform == "Scaler":
+            self.learn_func = Scaler_train_and_predict
+        else:       # "SK"
             self.learn_func = SK_train_and_predict
-        
+
+            
     def process_CSVfile (self, filename):
         views = []
         df = pd.read_csv(filename)
@@ -266,12 +279,11 @@ class CromeProcessor(object):
     def draw_charts (self, charts, filename):       
         for chart in charts:
             df = chart["data"]
-            title = self.target_col + ":  " + chart["type"] + "\n"
-            title += filename
+            title = self.target_col + ":  " + chart["type"]
             if "error" in chart:
                 title += "  (err=%s)" % chart["error"]
-            title += "\n" + self.resample_str + " train %dd test %dd" % (self.train_interval.days, self.predict_interval.days)
-            title += " [%s]" % " ".join(self.features)
+            title += "\n" + filename + " " + self.resample_str + " train %dd test %dd" % (self.train_interval.days, self.predict_interval.days)
+            title += "\n[%s]" % " ".join(self.features)
             outfile = self.compose_chart_name (filename, chart["type"])
             draw_chart(title, df[self.predict_col], df[self.target_col], df.index, outfile)
 
@@ -287,7 +299,7 @@ class CromeProcessor(object):
                     title += " (err=%5.3f)" % chart["error"]
                 ch_list.append ((title, df[self.predict_col], df[self.target_col], df.index))
             bigtitle = "%s %s %s train=%dd test=%dd" % (self.target_col, filename, self.resample_str, self.train_interval.days, self.predict_interval.days)
-            bigtitle += " [%s]" % " ".join(self.features)
+            bigtitle += "\n[%s]" % " ".join(self.features)
             draw_multi_charts (ch_list, bigtitle, outfile)
             
         
@@ -326,7 +338,7 @@ def draw_chart (chart_title, predicted, actual, dates, png_filename):       # th
     ax.grid(True)
     fig.autofmt_xdate()
     legend = ax.legend(loc='upper right', shadow=True)
-    plt.title (chart_title)
+    plt.title (chart_title, fontsize=10)
     fig.savefig(png_filename)
     plt.close()
     print (">>   wrote: ", png_filename)
