@@ -49,7 +49,7 @@ def H2O_train_and_predict(train_path, test_path, target_col, feat_cols, verbose=
     h2o.remove(preds.frame_id)
     h2o.remove(rf_model)
 
-    return predicted, 'predict'                 # H2O column name
+    return predicted['predict'].values
 
 
 
@@ -59,7 +59,7 @@ def SK_train_and_predict(train_path, test_path, target_col, feat_cols, verbose=F
     rf = RandomForestRegressor(n_estimators=20)
     rf.fit(df_train[feat_cols], df_train[target_col])
     predicted = rf.predict(df_predict[feat_cols])
-    return pd.DataFrame({'predict':predicted}), 'predict'
+    return predicted
 
 
 
@@ -70,7 +70,7 @@ def Scaler_train_and_predict(train_path, test_path, target_col, feat_cols, verbo
     Xt = x_scaler.transform(df_train[feat_cols])
     rf = RandomForestRegressor(n_estimators=20).fit(Xt, df_train[target_col])
     predicted = rf.predict(x_scaler.transform(df_predict[feat_cols]))
-    return pd.DataFrame({'predict':predicted}), 'predict'
+    return predicted
     
 
     
@@ -100,7 +100,7 @@ class CromeProcessor(object):
     def __init__ (self, target_col, date_col='DATETIMEUTC', train_size_days=31, predict_size_days=1, resample_str="15min", 
                   png_base_path=".", min_train=300, feats=[], platform="H2O"):
         self.target_col = target_col
-        self.predict_col = ""                   # platform specific
+        self.predict_col = "predict"
         self.train_interval = pd.Timedelta(days=train_size_days)
         self.predict_interval = pd.Timedelta(days=predict_size_days)
         self.resample_str = resample_str
@@ -222,10 +222,10 @@ class CromeProcessor(object):
                 df_train.to_csv(self.training_file_name, index=False)
                 df_test.to_csv(self.testing_file_name, index=False)
                 
-                preds, self.predict_col = self.learn_func (self.training_file_name, self.testing_file_name, self.target_col, self.features)
+                preds = self.learn_func (self.training_file_name, self.testing_file_name, self.target_col, self.features)
                 
                 # append to result dataframe
-                kwargs = {self.predict_col : preds[self.predict_col].values}
+                kwargs = {self.predict_col : preds}
                 df_test = df_test.assign (**kwargs)
                 result = pd.concat([result, df_test[[self.predict_col, self.target_col]]])
             else:
@@ -269,7 +269,7 @@ class CromeProcessor(object):
         df_tmp = df
         #df_tmp.index = range(len(df_tmp))        # may need to quash the DatetimeIndex:  it sometimes causes problems
         actual = df_tmp[self.target_col]
-        predictions = df_tmp["predict"]
+        predictions = df_tmp[self.predict_col]
         numerator = abs(predictions - actual)
         denominator = predictions.combine(actual, max)
         aae = numerator / denominator
