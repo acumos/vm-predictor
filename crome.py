@@ -2,8 +2,6 @@ from __future__ import print_function
 
 import pandas as pd
 import numpy as np
-import h2o
-from h2o.estimators.random_forest import H2ORandomForestEstimator
 
 from sklearn.ensemble import RandomForestRegressor        
 from sklearn.model_selection import cross_val_score
@@ -16,40 +14,6 @@ matplotlib.use ("Agg")
 import matplotlib.pyplot as plt
 import datetime
 from matplotlib.dates import YearLocator, MonthLocator, DayLocator, HourLocator, DateFormatter
-
-    
-h2o.init()
-h2o.h2o.no_progress()    
-    
-def H2O_train_and_predict(train_path, test_path, target_col, feat_cols, verbose=False):
-    if verbose:
-        print (">> Building model for target ", target_col)
-    
-    rf_model = H2ORandomForestEstimator (response_column=target_col, ntrees=20)
-    if verbose:
-        print (">>   importing:", train_path)
-    train_frame = h2o.import_file(path=train_path)    
-    
-    if verbose:
-        print (">>   importing:", test_path)
-    test_frame = h2o.import_file(path=test_path)    
-    
-    if verbose:
-        print (">>   training...")
-    res = rf_model.train (x=feat_cols, y=target_col, training_frame=train_frame)
-    
-    if verbose:
-        print (">>   predicting...")
-    preds = rf_model.predict(test_frame)
-
-    predicted = preds.as_data_frame()    
-    
-    h2o.remove(train_frame.frame_id)
-    h2o.remove(test_frame.frame_id)
-    h2o.remove(preds.frame_id)
-    h2o.remove(rf_model)
-
-    return predicted['predict'].values
 
 
 
@@ -98,7 +62,7 @@ def get_busy_avg (arr, period):
 class CromeProcessor(object):
     # See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases for resample strings
     def __init__ (self, target_col, date_col='DATETIMEUTC', train_size_days=31, predict_size_days=1, resample_str="15min", 
-                  png_base_path=".", min_train=300, feats=[], platform="H2O"):
+                  png_base_path=".", min_train=300, feats=[], train_predict_func=SK_train_and_predict):
         self.target_col = target_col
         self.predict_col = "predict"
         self.train_interval = pd.Timedelta(days=train_size_days)
@@ -120,13 +84,8 @@ class CromeProcessor(object):
         self.features = feats
         if len(self.features) < 1:  
             print ("CromeProcessor WARNING:  no features defined")
-        if platform == "H2O":
-            self.learn_func = H2O_train_and_predict
-        elif platform == "Scaler":
-            self.learn_func = Scaler_train_and_predict
-        else:       # "SK"
-            self.learn_func = SK_train_and_predict
-
+        self.learn_func = train_predict_func
+        
             
     def process_CSVfile (self, filename):
         views = []
@@ -417,7 +376,7 @@ if __name__ == "__main__":
     parser.add_argument('-S', '--sample_size', help='desired duration of train/predict units.  See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases', default='15min')
     parser.add_argument('files', nargs='+', help='list of CSV files to process')
     parser.add_argument('-f', '--features', nargs='+', help='list of features to use', default=['day', 'weekday', 'hour', 'minute'])
-    parser.add_argument('-M', '--ML_platform', help='specify machine learning platform to use', default='H2O')
+    parser.add_argument('-M', '--ML_platform', help='specify machine learning platform to use', default='SK')
     
     cfg = parser.parse_args()
 
@@ -425,8 +384,17 @@ if __name__ == "__main__":
         from random import shuffle
         shuffle (cfg.files)
 
+    ML_func = None
+    if cfg.ML_platform == "H2O":
+        import ML_h2o
+        ML_func = ML_h2o.H2O_train_and_predict
+    elif cfg.ML_platform == "Scaler":
+        ML_func = Scaler_train_and_predict
+    elif cfg.ML_platform == "SK":
+        ML_func = SK_train_and_predict
+        
     cp = CromeProcessor (cfg.target, png_base_path=cfg.png_dir, date_col=cfg.date_col, train_size_days=cfg.train_days, predict_size_days=cfg.predict_days, 
-                         resample_str=cfg.sample_size, min_train=cfg.min_train, feats=cfg.features, platform=cfg.ML_platform)
+                         resample_str=cfg.sample_size, min_train=cfg.min_train, feats=cfg.features, train_predict_func=ML_func)
 
     for fname in cfg.files[:cfg.max_files]:
         if exists(cp.compose_chart_name(basename(fname))) or exists(cp.compose_chart_name(basename(fname), 'original')):
