@@ -178,8 +178,8 @@ class CromeProcessor(object):
 
             print (">>   train %s rows from %s to %s;  predict %s rows from %s to %s" % (len(df_train), train_start, train_stop, len(df_test), predict_start, predict_stop))
             if self.check_valid_target (df_train):  #and self.check_valid_target (df_test):
-                df_train.to_csv(self.training_file_name, index=False)
-                df_test.to_csv(self.testing_file_name, index=False)
+                df_train.to_csv(self.training_file_name, index=True)
+                df_test.to_csv(self.testing_file_name, index=True)
                 
                 preds = self.learn_func (self.training_file_name, self.testing_file_name, self.target_col, self.features)
                 
@@ -392,6 +392,9 @@ if __name__ == "__main__":
         ML_func = Scaler_train_and_predict
     elif cfg.ML_platform == "SK":
         ML_func = SK_train_and_predict
+    elif cfg.ML_platform == "ARIMA":
+        import ML_arima
+        ML_func = ML_arima.ARIMA_train_and_predict
         
     cp = CromeProcessor (cfg.target, png_base_path=cfg.png_dir, date_col=cfg.date_col, train_size_days=cfg.train_days, predict_size_days=cfg.predict_days, 
                          resample_str=cfg.sample_size, min_train=cfg.min_train, feats=cfg.features, train_predict_func=ML_func)
