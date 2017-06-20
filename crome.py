@@ -4,8 +4,9 @@ import pandas as pd
 import numpy as np
 
 from sklearn.ensemble import RandomForestRegressor        
-from sklearn.model_selection import cross_val_score
+from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.preprocessing import StandardScaler
+
 
 from os import listdir, makedirs
 from os.path import isfile, join, basename, exists
@@ -37,6 +38,28 @@ def Scaler_train_and_predict(train_path, test_path, target_col, feat_cols, verbo
     return predicted
     
 
+def ET_train_and_predict(train_path, test_path, target_col, feat_cols, verbose=False):
+    df_train = pd.read_csv(train_path)
+    df_predict = pd.read_csv(test_path)
+    #rf = ExtraTreesRegressor(n_estimators=20)
+    #rf = ExtraTreesRegressor(n_estimators=10)
+    rf = ExtraTreesRegressor(n_estimators=5)
+    rf.fit(df_train[feat_cols], df_train[target_col])
+    predicted = rf.predict(df_predict[feat_cols])
+    return predicted
+    
+
+
+def ETS_train_and_predict(train_path, test_path, target_col, feat_cols, verbose=False):
+    df_train = pd.read_csv(train_path)
+    df_predict = pd.read_csv(test_path)
+    x_scaler = StandardScaler().fit(df_train[feat_cols])
+    Xt = x_scaler.transform(df_train[feat_cols])
+    rf = ExtraTreesRegressor(n_estimators=50).fit(Xt, df_train[target_col])
+    predicted = rf.predict(x_scaler.transform(df_predict[feat_cols]))
+    return predicted
+
+    
     
 def get_busy_hour (arr, period):
     best, high = None, None
@@ -112,11 +135,11 @@ class CromeProcessor(object):
                 df[feat] = df.index.hour
             elif feat == 'minute':
                 df[feat] = df.index.minute
-            elif feat.startswith ('hist-'):              # history features are of the form "hist-xxx" where xxx is a valid Timedelta string such as '1H'
+            elif feat.startswith ('hist-'):      # history features are of the form "hist-x" or "hist-x-y" where x and y are valid Timedelta strings such as '1H'
                 params = feat.split("-")
-                p1 = params[1]                           # first parameter is the shift (how long ago)
+                p1 = params[1]                   # first parameter (x) is the shift i.e. how long ago
                 if len(params) > 2:
-                    p2 = feat.split("-")[2]              # 2nd param if present is the size of the window
+                    p2 = feat.split("-")[2]      # 2nd param (y) if present is the size of the window
                     df[feat] = df[self.target_col].shift(freq=pd.Timedelta(p1)).rolling(p2).mean()
                 else:
                     df[feat] = df[self.target_col].shift(freq=pd.Timedelta (p1))
@@ -151,13 +174,15 @@ class CromeProcessor(object):
         vc = df[self.target_col].value_counts()
         if len(vc) < 2:
             return False
-        valid = 0
-        for idx,val in vc.iteritems():
-            if val > 1:
-                valid += 1
-                if valid > 1:
-                    return True
-        return False
+        #this test is irrelevant for regressors
+        #valid = 0
+        #for idx,val in vc.iteritems():
+        #    if val > 1:
+        #        valid += 1
+        #        if valid > 1:
+        #            return True
+        #return False
+        return True
 
         
     def predict_sliding_windows (self, df):        # presumed that the incoming dataframe contains ONLY rows of interest
@@ -392,6 +417,10 @@ if __name__ == "__main__":
         ML_func = Scaler_train_and_predict
     elif cfg.ML_platform == "SK":
         ML_func = SK_train_and_predict
+    elif cfg.ML_platform == "ET":
+        ML_func = ET_train_and_predict
+    elif cfg.ML_platform == "ETS":
+        ML_func = ETS_train_and_predict
     elif cfg.ML_platform == "ARIMA":
         import ML_arima
         ML_func = ML_arima.ARIMA_train_and_predict
