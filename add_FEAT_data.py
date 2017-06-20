@@ -38,7 +38,7 @@ def trim_columns (df, columns):
 
     
 
-def main(input_filename, dest_dir, float_cols, trim_cols, max_proc, VM_list=[]):
+def main(input_filename, dest_dir, float_cols, trim_cols, max_proc, skip_existing, VM_list=[]):
     print ("read file", input_filename)
     df = pd.read_csv(input_filename)
 
@@ -54,7 +54,7 @@ def main(input_filename, dest_dir, float_cols, trim_cols, max_proc, VM_list=[]):
         VM_list = sorted(list(set(df['VM_ID'])))            # process all VMs
     else:
         df = df[df['VM_ID'].isin(VM_list)]
-    
+
     print ("convert columns to float:", float_cols)
     df = cols_to_float (df, float_cols)
     
@@ -66,6 +66,9 @@ def main(input_filename, dest_dir, float_cols, trim_cols, max_proc, VM_list=[]):
         print ("processing VM: %s (%s rows)" % (vm, len(df_vm)))
         output_filename = join(dest_dir, vm + ".csv")
         if exists (output_filename):
+            if skip_existing:
+                print ("  already exists")
+                continue
             df_orig = pd.read_csv(output_filename)
             df_vm = pd.concat([df_orig, df_vm])
         big_size = len(df_vm)
@@ -90,17 +93,11 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--output_dir', default='.', help='destination directory containing VM data')
     parser.add_argument('-v', '--vm_list', nargs='+', help='list of VMs to process (default=all)')
     parser.add_argument('-n', '--max_vm', help = 'process at most N entities per input file', type=int, default=1000000)
+    parser.add_argument('-k', '--skip_existing', help = 'do not modify existing output files', action='store_false')
     
     cfg = parser.parse_args()
     
     for feat_file in cfg.input_files:
-        main (feat_file, cfg.output_dir, float_cols, trim_cols, cfg.max_vm, VM_list=cfg.vm_list)
+        main (feat_file, cfg.output_dir, float_cols, trim_cols, cfg.max_vm, cfg.skip_existing, VM_list=cfg.vm_list)
      
     
-
-
-
-
-
-
-
