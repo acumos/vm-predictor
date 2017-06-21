@@ -16,8 +16,36 @@ import matplotlib.pyplot as plt
 import datetime
 from matplotlib.dates import YearLocator, MonthLocator, DayLocator, HourLocator, DateFormatter
 
+class SK_RFmodel:
+    def __init__(self, estimators=20):
+        self.estimators = estimators
+        self.model = None
+        self.features = None
+        
+    def train_and_predict(self, train_path, test_path, target_col, feat_cols, verbose=False):
+        df_train = pd.read_csv(train_path)
+        df_predict = pd.read_csv(test_path)
+        rf = RandomForestRegressor(n_estimators=self.estimators)
+        rf.fit(df_train[feat_cols], df_train[target_col])
+        predicted = rf.predict(df_predict[feat_cols])
+        return predicted
+        
+    def train (self, df_train, target_col, feat_cols):
+        #df_train = pd.read_csv(train_path)
+        rf = RandomForestRegressor(n_estimators=self.estimators)
+        rf.fit(df_train[feat_cols], df_train[target_col])
+        self.model = rf
+        self.features = feat_cols
+        return rf
+        
+    def predict (self, df_predict):
+        #df_predict = pd.read_csv(predict_path)
+        predicted = self.model.predict(df_predict[self.features])
+        return predicted
 
 
+
+        
 def SK_train_and_predict(train_path, test_path, target_col, feat_cols, verbose=False):
     df_train = pd.read_csv(train_path)
     df_predict = pd.read_csv(test_path)
@@ -85,7 +113,7 @@ def get_busy_avg (arr, period):
 class CromeProcessor(object):
     # See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases for resample strings
     def __init__ (self, target_col, date_col='DATETIMEUTC', train_size_days=31, predict_size_days=1, resample_str="15min", 
-                  png_base_path=".", min_train=300, feats=[], train_predict_func=SK_train_and_predict):
+                  png_base_path=".", min_train=300, feats=[], model=SK_RFmodel()):
         self.target_col = target_col
         self.predict_col = "predict"
         self.train_interval = pd.Timedelta(days=train_size_days)
@@ -107,7 +135,7 @@ class CromeProcessor(object):
         self.features = feats
         if len(self.features) < 1:  
             print ("CromeProcessor WARNING:  no features defined")
-        self.learn_func = train_predict_func
+        self.model = model
         
             
     def process_CSVfile (self, filename):
@@ -122,7 +150,33 @@ class CromeProcessor(object):
             print (">>   Aborting:  all target values are identical.")
         return views
 
+       
+    def build_model_from_CSV (self, CSV_filename):
+        df = self.get_training_data(CSV_filename)
+        return self.model.train (df, self.target_col, self.features)
 
+
+    def get_training_data (self, CSV_filename):
+        df = pd.read_csv(CSV_filename)
+        df = self.transform_dataframe (df)
+        train_start = df.index[0]                              # TBD:  add optional start date
+        train_stop = train_start + self.train_interval
+        df = df[train_start : train_stop - self.smidgen]       # DatetimeIndex slices are inclusive
+        return df
+
+        
+    def predict_CSV (self, CSV_filename):
+        df = pd.read_csv(CSV_filename)
+        df = self.transform_dataframe (df)
+        predict_start = df.index[0]
+        predict_stop = predict_start + self.predict_interval
+        df = df[predict_start : predict_stop - self.smidgen]    # DatetimeIndex slices are inclusive
+        return self.model.predict(df)
+
+
+
+        
+        
     def add_derived_features (self, df):
         for feat in self.features:
             if feat == 'month':
@@ -206,7 +260,7 @@ class CromeProcessor(object):
                 df_train.to_csv(self.training_file_name, index=True)
                 df_test.to_csv(self.testing_file_name, index=True)
                 
-                preds = self.learn_func (self.training_file_name, self.testing_file_name, self.target_col, self.features)
+                preds = self.model.train_and_predict (self.training_file_name, self.testing_file_name, self.target_col, self.features)
                 
                 # append to result dataframe
                 kwargs = {self.predict_col : preds}
@@ -382,6 +436,12 @@ def compute_date_step (day_count, chart_inches):
     return step
     
 
+
+    
+                         
+
+
+
     
         
 if __name__ == "__main__":
@@ -409,14 +469,14 @@ if __name__ == "__main__":
         from random import shuffle
         shuffle (cfg.files)
 
-    ML_func = None
+    ML_model = None
     if cfg.ML_platform == "H2O":
         import ML_h2o
         ML_func = ML_h2o.H2O_train_and_predict
     elif cfg.ML_platform == "Scaler":
         ML_func = Scaler_train_and_predict
     elif cfg.ML_platform == "SK":
-        ML_func = SK_train_and_predict
+        ML_model = SK_RFmodel()
     elif cfg.ML_platform == "ET":
         ML_func = ET_train_and_predict
     elif cfg.ML_platform == "ETS":
@@ -424,10 +484,10 @@ if __name__ == "__main__":
     elif cfg.ML_platform == "ARIMA":
         import ML_arima
         ML_func = ML_arima.ARIMA_train_and_predict
-        
-    cp = CromeProcessor (cfg.target, png_base_path=cfg.png_dir, date_col=cfg.date_col, train_size_days=cfg.train_days, predict_size_days=cfg.predict_days, 
-                         resample_str=cfg.sample_size, min_train=cfg.min_train, feats=cfg.features, train_predict_func=ML_func)
 
+    cp = CromeProcessor (cfg.target, png_base_path=cfg.png_dir, date_col=cfg.date_col, train_size_days=cfg.train_days, predict_size_days=cfg.predict_days, 
+                         resample_str=cfg.sample_size, min_train=cfg.min_train, feats=cfg.features, model=ML_model)
+    
     for fname in cfg.files[:cfg.max_files]:
         if exists(cp.compose_chart_name(basename(fname))) or exists(cp.compose_chart_name(basename(fname), 'original')):
             print (">> %s:  chart already exists, skipped" % fname)
