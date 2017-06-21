@@ -151,20 +151,17 @@ class CromeProcessor(object):
         return views
 
        
-    def build_model_from_CSV (self, CSV_filename):
-        df = self.get_training_data(CSV_filename)
-        return self.model.train (df, self.target_col, self.features)
-
-
-    def get_training_data (self, CSV_filename):
+    def build_model_from_CSV (self, CSV_filename, datafile_out=None):
         df = pd.read_csv(CSV_filename)
         df = self.transform_dataframe (df)
         train_start = df.index[0]                              # TBD:  add optional start date
         train_stop = train_start + self.train_interval
         df = df[train_start : train_stop - self.smidgen]       # DatetimeIndex slices are inclusive
-        return df
+        if datafile_out:
+            df.to_csv(datafile_out)
+        return self.model.train (df, self.target_col, self.features)
 
-        
+       
     def predict_CSV (self, CSV_filename):
         df = pd.read_csv(CSV_filename)
         df = self.transform_dataframe (df)
@@ -173,9 +170,6 @@ class CromeProcessor(object):
         df = df[predict_start : predict_stop - self.smidgen]    # DatetimeIndex slices are inclusive
         return self.model.predict(df)
 
-
-
-        
         
     def add_derived_features (self, df):
         for feat in self.features:

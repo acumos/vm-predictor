@@ -22,34 +22,6 @@ from asimov_client.api import Api
 from crome import CromeProcessor
 
 
-
-def SK_train (train_path, target_col, feat_cols, verbose=False):
-    df_train = pd.read_csv(train_path)
-    rf = RandomForestRegressor(n_estimators=20)
-    rf.fit(df_train[feat_cols], df_train[target_col])
-    return rf
-    
-    #df_predict = pd.read_csv(test_path)
-    #predicted = rf.predict(df_predict[feat_cols])
-    #return predicted
-
-
-
-def OLD_push_to_cognita (model, datafilename, feat_cols):
-    username = 'mt531r'
-    api = Api()
-    if not api.users.exists({'username': username}):
-        api.users.create(json={'username': username})
-    
-    template_name = 'crome-classifier-4'    
-    
-    # push the model to ASIMoV. this will take ~ 1m to build the solution (docker image)
-    df = pd.read_csv(datafilename)
-    df = df[feat_cols]
-    asimov.push_model(model, df, username=username, template_name=template_name, create_template=True)
-    return {'user': username, 'template': template_name}
-
-
 def push_to_cognita (model, dataframe, feat_cols):
     username = 'mt531r'
     api = Api()
@@ -61,7 +33,6 @@ def push_to_cognita (model, dataframe, feat_cols):
     # push the model to ASIMoV. this will take ~ 1m to build the solution (docker image)
     asimov.push_model(model, dataframe[feat_cols], username=username, template_name=template_name, create_template=True)
     return {'user': username, 'template': template_name}
-    
     
     
     
@@ -89,11 +60,15 @@ if __name__ == "__main__":
     
     target = "cpu_usage"
     features = ['day', 'weekday', 'hour', 'minute', 'hist-1D8H', 'hist-1D4H', 'hist-1D2H', 'hist-1D1H', 'hist-1D', 'hist-1D15m', 'hist-1D30m', 'hist-1D45m']
-
+    tmpfile = "training.csv"
+    
     print ("train: ", training_filename)
     cp = CromeProcessor (target, feats=features)
-    df = cp.get_training_data (training_filename)
-    model = cp.model.train(df, target, features)
+    import pdb; pdb.set_trace()
+    model = cp.build_model_from_CSV (training_filename, datafile_out=tmpfile)
+    df = pd.read_csv(tmpfile)
+    #df = cp.get_training_data (training_filename)
+    #model = cp.model.train(df, target, features)
     
     print ("push to cognita")
     info = push_to_cognita (model, df, features)
@@ -113,14 +88,10 @@ if __name__ == "__main__":
     print ("do predictions")
     resp = requests.post(prediction_api, json=lol)
     preds = resp.json()
-    import pdb; pdb.set_trace()
+    
+    print ("example predictions:", preds[:5])
 
     print ("done!")
-    
-    
-    
-    #import pickle
-    #pickle.dump(model, open("model.pkl", "wb"))
     
     
     
