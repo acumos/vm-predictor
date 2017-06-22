@@ -64,11 +64,8 @@ if __name__ == "__main__":
     
     print ("train: ", training_filename)
     cp = CromeProcessor (target, feats=features)
-    import pdb; pdb.set_trace()
     model = cp.build_model_from_CSV (training_filename, datafile_out=tmpfile)
     df = pd.read_csv(tmpfile)
-    #df = cp.get_training_data (training_filename)
-    #model = cp.model.train(df, target, features)
     
     print ("push to cognita")
     info = push_to_cognita (model, df, features)
@@ -82,8 +79,11 @@ if __name__ == "__main__":
     print ("prepare data")
     time.sleep(10)                          # needed to add this delay to avoid connection errors!!
     df = df[features]
-    df = df.astype(int)
+    
+    # Convert to list of lists.
+    df['__tmp__'] = 'a'                     # A sneaky way to preserve types:  typecast won't be applied if an object (string) is present
     lol = df.values.tolist()
+    lol = [n[:-1] for n in lol]             # remove the temp string before posting
     
     print ("do predictions")
     resp = requests.post(prediction_api, json=lol)
