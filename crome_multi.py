@@ -164,7 +164,7 @@ class CromeProcessor(object):
             VM_list = VM_list[:self.max_entities]                                   # process 
             big_df = big_df[big_df[self.entity_col].isin(VM_list)]
         df_result = self.predict_sliding_windows (big_df, VM_list)
-        views = self.build_views (df_result)
+        views = self.build_views (df_result, VM_list)
         return views
 
        
@@ -268,6 +268,18 @@ class CromeProcessor(object):
                 result = pd.concat([result, df[[self.entity_col, self.predict_col, self.target_col]]])
         return result
 
+    def ALTERNATE_predict_timeslice_model (self, bigmodel, master_df, VM_list, predict_start, predict_stop):
+        result = {}
+        for vm in VM_list:
+            df = master_df[master_df[self.entity_col]==vm].copy()
+            df = self.transform_dataframe (df)
+            df = df[predict_start : predict_stop - self.smidgen]
+            if len(df) >= self.min_predict_rows:
+                preds = bigmodel.predict (df[self.features])
+                df[self.predict_col] = preds
+                result[vm] = df[[self.predict_col, self.target_col]]
+        return result
+
             
     def predict_sliding_windows (self, master_df, VM_list):
         train_start = min(pd.to_datetime(master_df[self.date_col]))        # TBD:  allow user to specify start date
@@ -281,35 +293,36 @@ class CromeProcessor(object):
             xmodel = self.train_timeslice_model (master_df, VM_list, train_start, train_stop)
             if not xmodel:
                 break
-            import pdb; pdb.set_trace()
             preds = self.predict_timeslice_model (xmodel, master_df, VM_list, predict_start, predict_stop)
             result = pd.concat([result, preds])
             train_start += self.predict_interval
         return result
 
 
-    def build_views (self, df):
+    def build_views (self, master_df, VM_list):
         output = []
-        if len(df) > 0:
-            if self.showRaw:
-                self.add_view (output, "original", df, False)
-            if self.pctile:
-                self.add_view (output, "percentile_%s" % self.pctile, df.resample("1D").apply(lambda x: np.nanpercentile(x, self.pctile)), True)
-            if self.STD:
-                self.add_view (output, "std", df.resample("1D").apply(lambda x: np.std(x)), False)
-            if self.VAR:
-                self.add_view (output, "variance", df.resample("1D").apply(lambda x: np.var(x)), False)
-            if self.busyHours:
-                df_hour = df.resample("1H").mean()
-                self.add_view (output, "busy_hour_%sH" % self.busyHours, df_hour.resample("1D").apply(lambda x: get_busy_hour(x, self.busyHours).hour), False)
-                self.add_view (output, "busy_avg_%sH" % self.busyHours, df_hour.resample("1D").apply(lambda x: get_busy_avg(x, self.busyHours)), True)
-        else:
-            print (">> build_views:  insufficient data")
+        for vm in VM_list:
+            df = master_df[master_df[self.entity_col]==vm]
+            if len(df) > 0:
+                if self.showRaw:
+                    self.add_view (output, "original", df, vm, False)
+                if self.pctile:
+                    self.add_view (output, "percentile_%s" % self.pctile, df.resample("1D").apply(lambda x: np.nanpercentile(x, self.pctile)), vm, True)
+                if self.STD:
+                    self.add_view (output, "std", df.resample("1D").apply(lambda x: np.std(x)), vm, False)
+                if self.VAR:
+                    self.add_view (output, "variance", df.resample("1D").apply(lambda x: np.var(x)), vm, False)
+                if self.busyHours:
+                    df_hour = df.resample("1H").mean()
+                    self.add_view (output, "busy_hour_%sH" % self.busyHours, df_hour.resample("1D").apply(lambda x: get_busy_hour(x, self.busyHours).hour), vm, False)
+                    self.add_view (output, "busy_avg_%sH" % self.busyHours, df_hour.resample("1D").apply(lambda x: get_busy_avg(x, self.busyHours)), vm, True)
+            else:
+                print (">> build_views:  insufficient data for %s" % vm)
         return output
         
 
-    def add_view (self, result_obj, view_name, dataframe, calc_error = False):
-        entry = {"type":view_name, "data":dataframe}
+    def add_view (self, result_obj, view_name, dataframe, entity, calc_error = False):
+        entry = {"entity": entity, "type":view_name, "data":dataframe}
         if calc_error:
             entry["error"] = self.calc_AAE (dataframe)        
         result_obj.append(entry)
@@ -333,9 +346,9 @@ class CromeProcessor(object):
             title = self.target_col + ":  " + chart["type"]
             if "error" in chart:
                 title += "  (err=%s)" % chart["error"]
-            title += "\n" + filename + " " + self.resample_str + " train %dd test %dd" % (self.train_interval.days, self.predict_interval.days)
+            title += "\n" + chart["entity"] + " " + self.resample_str + " train %dd test %dd" % (self.train_interval.days, self.predict_interval.days)
             title += "\n[%s]" % " ".join(self.features)
-            outfile = self.compose_chart_name (filename, chart["type"])
+            outfile = self.compose_chart_name (chart["entity"], chart["type"])
             draw_chart(title, df[self.predict_col], df[self.target_col], df.index, outfile)
 
 
