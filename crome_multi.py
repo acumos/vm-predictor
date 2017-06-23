@@ -155,13 +155,14 @@ class CromeProcessor(object):
 
 
     def process_CSVfile (self, filename):
-        import pdb; pdb.set_trace()
         views = []
         big_df = pd.read_csv(filename)
         big_df = cleanup(big_df)
         print (">> %s: %s total rows" % (filename, len(big_df)))
         VM_list = sorted(list(set(big_df[self.entity_col])))
-        VM_list = VM_list[:self.max_entities]                                   # process 
+        if self.max_entities:
+            VM_list = VM_list[:self.max_entities]                                   # process 
+            big_df = big_df[big_df[self.entity_col].isin(VM_list)]
         df_result = self.predict_sliding_windows (big_df, VM_list)
         views = self.build_views (df_result)
         return views
@@ -242,12 +243,13 @@ class CromeProcessor(object):
     def train_timeslice_model (self, master_df, VM_list, train_start, train_stop):
         train_data = pd.DataFrame()
         for vm in VM_list:
-            df = master_df[master_df[self.main_key]==vm].copy()
+            df = master_df[master_df[self.entity_col]==vm].copy()
+            print (">>      %s:  add %s rows " % (vm, len(df)))
             df = self.transform_dataframe (df)
             df = df[train_start : train_stop - self.smidgen]
             train_data = pd.concat ([train_data, df])
         bigmodel = None
-        if len(train_data) >= self.self.min_train_rows and self.check_valid_target (train_data):
+        if len(train_data) >= self.min_train_rows and self.check_valid_target (train_data):
             bigmodel = self.model.train (train_data, self.target_col, self.features)
         return bigmodel
             
@@ -255,14 +257,15 @@ class CromeProcessor(object):
     def predict_timeslice_model (self, bigmodel, master_df, VM_list, predict_start, predict_stop):
         result = pd.DataFrame()
         for vm in VM_list:
-            df = master_df[master_df[self.main_key]==vm].copy()
+            df = master_df[master_df[self.entity_col]==vm].copy()
             df = self.transform_dataframe (df)
             df = df[predict_start : predict_stop - self.smidgen]
-            preds = bigmodel.predict (df)
-            # append to result dataframe
-            kwargs = {self.predict_col : preds}
-            df_test = df_test.assign (**kwargs)
-            result = pd.concat([result, df_test[[self.predict_col, self.target_col]]])
+            if len(df) >= self.min_predict_rows:
+                preds = bigmodel.predict (df[self.features])
+                # append to result dataframe
+                df[self.predict_col] = preds
+                df[self.entity_col] = vm
+                result = pd.concat([result, df[[self.entity_col, self.predict_col, self.target_col]]])
         return result
 
             
@@ -274,13 +277,13 @@ class CromeProcessor(object):
             train_stop = train_start + self.train_interval
             predict_start = train_stop
             predict_stop = predict_start + self.predict_interval
-            
-            print (">>   train %s rows from %s to %s;  predict %s rows from %s to %s" % (len(df_train), train_start, train_stop, len(df_test), predict_start, predict_stop))
-            xmodel = self.train_timeslice_model (master_df, train_start, train_stop)
-            if xmodel:
-                preds = self.model.predict_timeslice_model (xmodel, master_df, predict_start, predict_stop)
-            else:
-                print (">>   invalid data")
+            print (">>    train from %s to %s;  predict from %s to %s" % (train_start, train_stop, predict_start, predict_stop))
+            xmodel = self.train_timeslice_model (master_df, VM_list, train_start, train_stop)
+            if not xmodel:
+                break
+            import pdb; pdb.set_trace()
+            preds = self.predict_timeslice_model (xmodel, master_df, VM_list, predict_start, predict_stop)
+            result = pd.concat([result, preds])
             train_start += self.predict_interval
         return result
 
