@@ -3,8 +3,10 @@ import pandas
 import h2o
 from h2o.estimators.random_forest import H2ORandomForestEstimator
 
+import matplotlib 
+matplotlib.use ("Agg")
 import matplotlib.pyplot as plt
-import datetime
+
 
 def train_random_forest(file_path, target_col):
     print "Building model..."
@@ -24,16 +26,16 @@ def train_random_forest(file_path, target_col):
     
     predicted = preds.as_data_frame()    
     actual = test_frame.as_data_frame()
-    #xx = range(len(actual))
-    #import pdb; pdb.set_trace()
-    xx = actual['DATETIMEUTC'] / 1000               # remove trailing 000
-    dates = xx.apply(lambda j:datetime.datetime.fromtimestamp(j))
-    plt.plot_date(dates,actual['usage'], 'b-', label='Actual')
-    plt.plot_date(dates,predicted['predict'],'r-', label='Predicted')
-    legend = plt.legend(loc='upper center', shadow=True)
+    xx = range(len(actual))
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.plot(xx,actual['usage'], 'b-', label='Actual')
+    ax.plot(xx,predicted['predict'],'r-', label='Predicted')
+    legend = ax.legend(loc='upper center', shadow=True)
     plt.title (file_path)
-    plt.show()
-    import pdb; pdb.set_trace()
+    #plt.show()
+    fig.savefig(file_path+".png")
+    #import pdb; pdb.set_trace()
     print "  done!"
 
 
