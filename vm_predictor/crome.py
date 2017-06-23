@@ -133,15 +133,12 @@ class CromeProcessor(object):
         self.smidgen = pd.Timedelta('1 second')
         self.one_hour = pd.Timedelta('1 hour')
         self.features = feats
-        self.entity_col = 'VM_ID'
-        self.max_entities = 10              # TEST VALUE
         if len(self.features) < 1:  
             print ("CromeProcessor WARNING:  no features defined")
         self.model = model
         
-        
             
-    def ORIGINAL_process_CSVfile (self, filename):
+    def process_CSVfile (self, filename):
         views = []
         df = pd.read_csv(filename)
         print (">> %s: %s rows" % (filename, len(df)))
@@ -151,20 +148,6 @@ class CromeProcessor(object):
             views = self.build_views (df_result)
         else:
             print (">>   Aborting:  all target values are identical.")
-        return views
-
-
-    def process_CSVfile (self, filename):
-        views = []
-        big_df = pd.read_csv(filename)
-        big_df = cleanup(big_df)
-        print (">> %s: %s total rows" % (filename, len(big_df)))
-        VM_list = sorted(list(set(big_df[self.entity_col])))
-        if self.max_entities:
-            VM_list = VM_list[:self.max_entities]                                   # process 
-            big_df = big_df[big_df[self.entity_col].isin(VM_list)]
-        df_result = self.predict_sliding_windows (big_df, VM_list)
-        views = self.build_views (df_result)
         return views
 
        
@@ -237,54 +220,52 @@ class CromeProcessor(object):
 
     def check_valid_target (self, df):
         vc = df[self.target_col].value_counts()
-        return len(vc) >= 2
+        if len(vc) < 2:
+            return False
+        #this test is irrelevant for regressors
+        #valid = 0
+        #for idx,val in vc.iteritems():
+        #    if val > 1:
+        #        valid += 1
+        #        if valid > 1:
+        #            return True
+        #return False
+        return True
 
-
-    def train_timeslice_model (self, master_df, VM_list, train_start, train_stop):
-        train_data = pd.DataFrame()
-        for vm in VM_list:
-            df = master_df[master_df[self.entity_col]==vm].copy()
-            print (">>      %s:  add %s rows " % (vm, len(df)))
-            df = self.transform_dataframe (df)
-            df = df[train_start : train_stop - self.smidgen]
-            train_data = pd.concat ([train_data, df])
-        bigmodel = None
-        if len(train_data) >= self.min_train_rows and self.check_valid_target (train_data):
-            bigmodel = self.model.train (train_data, self.target_col, self.features)
-        return bigmodel
-            
-
-    def predict_timeslice_model (self, bigmodel, master_df, VM_list, predict_start, predict_stop):
-        result = pd.DataFrame()
-        for vm in VM_list:
-            df = master_df[master_df[self.entity_col]==vm].copy()
-            df = self.transform_dataframe (df)
-            df = df[predict_start : predict_stop - self.smidgen]
-            if len(df) >= self.min_predict_rows:
-                preds = bigmodel.predict (df[self.features])
-                # append to result dataframe
-                df[self.predict_col] = preds
-                df[self.entity_col] = vm
-                result = pd.concat([result, df[[self.entity_col, self.predict_col, self.target_col]]])
-        return result
-
-            
-    def predict_sliding_windows (self, master_df, VM_list):
-        train_start = min(pd.to_datetime(master_df[self.date_col]))        # TBD:  allow user to specify start date
+        
+    def predict_sliding_windows (self, df):        # presumed that the incoming dataframe contains ONLY rows of interest
+        train_start = df.index[0]
         result = pd.DataFrame()
         while True:
-            # per day:  train ONE model for all VMs.   Then predict EACH VM separately.
             train_stop = train_start + self.train_interval
             predict_start = train_stop
             predict_stop = predict_start + self.predict_interval
-            print (">>    train from %s to %s;  predict from %s to %s" % (train_start, train_stop, predict_start, predict_stop))
-            xmodel = self.train_timeslice_model (master_df, VM_list, train_start, train_stop)
-            if not xmodel:
+            
+            df_train = df[train_start : train_stop - self.smidgen]       # DatetimeIndex slices are inclusive
+            if len(df_train) < self.min_train_rows:
                 break
-            import pdb; pdb.set_trace()
-            preds = self.predict_timeslice_model (xmodel, master_df, VM_list, predict_start, predict_stop)
-            result = pd.concat([result, preds])
+                
+            df_test = df[predict_start : predict_stop - self.smidgen]    # DatetimeIndex slices are inclusive
+            if len(df_test) < self.min_predict_rows:
+                break
+
+            print (">>   train %s rows from %s to %s;  predict %s rows from %s to %s" % (len(df_train), train_start, train_stop, len(df_test), predict_start, predict_stop))
+            if self.check_valid_target (df_train):  #and self.check_valid_target (df_test):
+                df_train.to_csv(self.training_file_name, index=True)
+                df_test.to_csv(self.testing_file_name, index=True)
+                
+                preds = self.model.train_and_predict (self.training_file_name, self.testing_file_name, self.target_col, self.features)
+                
+                # append to result dataframe
+                kwargs = {self.predict_col : preds}
+                df_test = df_test.assign (**kwargs)
+                result = pd.concat([result, df_test[[self.predict_col, self.target_col]]])
+            else:
+                print (">>   invalid data")
+                
+            #remove_files ([training_file_name, testing_file_name])   ??
             train_start += self.predict_interval
+            
         return result
 
 
@@ -448,46 +429,12 @@ def compute_date_step (day_count, chart_inches):
     step = max (int(factor + 0.5), 1)
     return step
     
-
-
-
-def remove_column_spaces (df):
-    print (">> remove column spaces")
-    replace_dict = {}
-    for colname in df.columns:
-        replace_dict[colname] = colname.replace(" ", "")
-    df = df.rename(index=str, columns=replace_dict)
-    return df
-
-
-
-def trim_columns (df):
-    col_list = list(df.select_dtypes(include=['object']).columns)
-    for colname in col_list:
-        print (">> trim: ", colname)
-        try:
-            df[colname] = df[colname].str.strip()
-        except:
-            pass
-    return df
-
-
-    
-def cleanup (df):
-    df = remove_column_spaces(df)
-    df = trim_columns (df)              # remove leading and trailing spaces
-    return df
-    
-                         
-
-
-
     
         
-if __name__ == "__main__":
 
+def main():
     import argparse
-    parser = argparse.ArgumentParser(description = "CROME training and testing", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(description = "VM Predictor training and testing", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-t', '--target', help='target prediction column', default='cpu_usage')
     parser.add_argument('-c', '--compound', help = 'output compound charts', action='store_true')
     parser.add_argument('-s', '--separate', help = 'output separate charts', action='store_true')
@@ -511,7 +458,7 @@ if __name__ == "__main__":
 
     ML_model = None
     if cfg.ML_platform == "H2O":
-        import ML_h2o
+        from vm_predictor import ML_h2o
         ML_func = ML_h2o.H2O_train_and_predict
     elif cfg.ML_platform == "Scaler":
         ML_func = Scaler_train_and_predict
@@ -522,7 +469,7 @@ if __name__ == "__main__":
     elif cfg.ML_platform == "ETS":
         ML_func = ETS_train_and_predict
     elif cfg.ML_platform == "ARIMA":
-        import ML_arima
+        from vm_predictor import ML_arima
         ML_func = ML_arima.ARIMA_train_and_predict
 
     cp = CromeProcessor (cfg.target, png_base_path=cfg.png_dir, date_col=cfg.date_col, train_size_days=cfg.train_days, predict_size_days=cfg.predict_days, 
@@ -538,4 +485,7 @@ if __name__ == "__main__":
             if cfg.separate:
                 cp.draw_charts(results, basename(fname))
    
+
+if __name__ == "__main__":
+    main()
 
