@@ -1,0 +1,2 @@
+git+ssh://git@gitlab.research.att.com/ASIMOV/eve-asimov.git
+sklearn
