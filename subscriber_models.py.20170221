@@ -1,0 +1,110 @@
+import os
+import pandas as pd
+import h2o
+from h2o.estimators.random_forest import H2ORandomForestEstimator
+
+import matplotlib 
+matplotlib.use ("Agg")
+import matplotlib.pyplot as plt
+
+    
+# derived from calc_AAE.py    
+def calc_AAE (predict_h2o, actual_h2o, target_col):           
+    # we must convert to pandas first to preserve NAN entries
+    actual = actual_h2o.as_data_frame()
+    actual = actual[target_col]
+    predicted = predict_h2o.as_data_frame()
+    predicted = predicted['predict']
+
+    numerator = abs(predicted - actual)
+    denominator = predicted.combine(actual, max)
+    aae = numerator / denominator
+    return aae.mean()
+    
+
+
+
+def train_random_forest(file_path, target_col):
+    print ">> Building model for target ", target_col
+    
+    h2o.init()
+    rf_model = H2ORandomForestEstimator (response_column=target_col, ntrees=20)
+    print "  importing", file_path
+    mainframe = h2o.import_file(path=file_path)    
+    train_frame, test_frame = mainframe.split_frame([0.50])
+    
+    cols = [u'SUBSCRIBER_NAME', u'month', u'day', u'weekday', u'hour', u'minute']
+    print ">>   training..."
+    res = rf_model.train (x=cols, y=target_col, training_frame=train_frame)
+    
+    print ">>   predicting..."
+    preds = rf_model.predict(test_frame)
+    
+    # predictions are in preds
+    print ">>   calculating AAE..."
+    #aae = calc_avg_abs_err (preds, test_frame[target_col])
+    aae = calc_AAE (preds, test_frame, target_col)
+    print ">>   AAE=", aae
+    
+    predicted = preds.as_data_frame()    
+    actual = test_frame.as_data_frame()
+    xx = range(len(actual))
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.plot(xx,actual['usage'], 'b-', label='Actual')
+    ax.plot(xx,predicted['predict'],'r-', label='Predicted')
+    legend = ax.legend(loc='upper center', shadow=True)
+    plt.title (target_col + "\n" + file_path + " AAE=" + str(aae))
+    fig.savefig("./models/" + target_col + "/" + file_path + ".png")
+    print ">>   done!"
+
+
+
+
+
+
+def process_subscriber (df, target_col, fname):
+    if len(df[target].value_counts()) < 2:
+        print ">> ERROR -- all target values are identical"
+    else:
+        df.to_csv(fname, index=False)
+        train_random_forest(fname, target)
+
+
+        
+        
+if __name__ == "__main__":        
+    import sys
+
+    #target = "usage"
+    target = sys.argv[1]
+
+    filename = "vnf_bandwidth_timecols.csv"
+
+    topN = 11
+
+    # load the dataframe & segregate it by subscriber
+
+    print ">> processing file: ", filename
+    df = pd.read_csv(filename)
+    df.sort_values(by='DATETIMEUTC', inplace=True)
+    vc = df['SUBSCRIBER_NAME'].value_counts()
+
+    # build models for the top N subscribers
+    for subscriber in vc.index[1:topN+1]:                 # note: skip subscriber 'Unknown'
+        print ">> subscriber: ", subscriber
+        # save the subscriber rows as a file
+        fname = subscriber + ".csv"
+        df2 = df[df['SUBSCRIBER_NAME']==subscriber]
+        process_subscriber (df2, target, fname)
+        
+
+    # Special handling for 'Unknown' case vs. all others
+
+    #process_subscriber (df[df['SUBSCRIBER_NAME']=='Unknown'], target, "Unknown.csv")
+    #process_subscriber (df[df['SUBSCRIBER_NAME']!='Unknown'], target, "NotUnknown.csv")
+
+    # Last but not least do 'All' case
+    #process_subscriber (df, target, "All.csv")
+    
+    
