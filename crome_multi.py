@@ -134,7 +134,7 @@ class CromeProcessor(object):
         self.one_hour = pd.Timedelta('1 hour')
         self.features = feats
         self.entity_col = 'VM_ID'
-        self.max_entities = 10              # TEST VALUE
+        self.max_entities = 10              # TEST VALUE !!!
         if len(self.features) < 1:  
             print ("CromeProcessor WARNING:  no features defined")
         self.model = model
@@ -155,17 +155,15 @@ class CromeProcessor(object):
 
 
     def process_CSVfile (self, filename):
-        views = []
         big_df = pd.read_csv(filename)
         big_df = cleanup(big_df)
         print (">> %s: %s total rows" % (filename, len(big_df)))
         VM_list = sorted(list(set(big_df[self.entity_col])))
         if self.max_entities:
-            VM_list = VM_list[:self.max_entities]                                   # process 
+            VM_list = VM_list[:self.max_entities]
             big_df = big_df[big_df[self.entity_col].isin(VM_list)]
         df_result = self.predict_sliding_windows (big_df, VM_list)
-        views = self.build_views (df_result, VM_list)
-        return views
+        return df_result, VM_list
 
        
     def build_model_from_CSV (self, CSV_filename, datafile_out=None):
@@ -340,7 +338,7 @@ class CromeProcessor(object):
         return aae.mean()
 
             
-    def draw_charts (self, charts, filename):       
+    def draw_charts (self, charts):
         for chart in charts:
             df = chart["data"]
             title = self.target_col + ":  " + chart["type"]
@@ -349,6 +347,8 @@ class CromeProcessor(object):
             title += "\n" + chart["entity"] + " " + self.resample_str + " train %dd test %dd" % (self.train_interval.days, self.predict_interval.days)
             title += "\n[%s]" % " ".join(self.features)
             outfile = self.compose_chart_name (chart["entity"], chart["type"])
+            if exists(outfile):
+                print (">> %s:  chart already exists, skipped" % fname)
             draw_chart(title, df[self.predict_col], df[self.target_col], df.index, outfile)
 
 
@@ -365,8 +365,28 @@ class CromeProcessor(object):
             bigtitle = "%s %s %s train=%dd test=%dd" % (self.target_col, filename, self.resample_str, self.train_interval.days, self.predict_interval.days)
             bigtitle += "\n[%s]" % " ".join(self.features)
             draw_multi_charts (ch_list, bigtitle, outfile)
+
+
+    def output_predictions (self, master_df, VM_list, skip_existing=False):
+        master_df[self.date_col] = master_df.index
+        for vm in VM_list:
+            df_vm = master_df[master_df[self.entity_col]==vm]
+            filepath = self.compose_file_name (vm, suffix="predict", extension=".csv")
+            if exists (filepath):
+                if skip_existing:
+                    print ("  already exists")
+                    continue
+                # merge data w/ existing
+                df_orig = pd.read_csv(filepath)
+                df_vm = pd.concat([df_orig, df_vm])
+            big_size = len(df_vm)
+            df_vm = df_vm.drop_duplicates(subset=self.date_col)
+            if len(df_vm) != big_size:
+                print ("  dropped %s duplicate rows" % (big_size - len(df_vm),))
+            df_vm[[self.date_col, self.predict_col, self.target_col]].to_csv(filepath, index=False)
+            print (">>   wrote: ", filepath)
+
             
-        
     def compose_chart_name(self, entity, chart_type="", subscriber=None):
         output_path = join(self.png_base, self.target_col)
         if chart_type:
@@ -380,6 +400,18 @@ class CromeProcessor(object):
         else:
             return join(output_path, entity) + chart_type + ".png"
         
+
+    def compose_file_name(self, entity, suffix="", extension=".png"):
+        output_path = join(self.png_base, self.target_col)
+        if suffix:
+            suffix = "-" + suffix
+        try:
+            makedirs (output_path)
+        except OSError:
+            pass
+        return join(output_path, entity) + suffix + extension
+
+
         
             
 def draw_chart (chart_title, predicted, actual, dates, png_filename):       # three pd.Series
@@ -515,6 +547,8 @@ if __name__ == "__main__":
     parser.add_argument('files', nargs='+', help='list of CSV files to process')
     parser.add_argument('-f', '--features', nargs='+', help='list of features to use', default=['day', 'weekday', 'hour', 'minute'])
     parser.add_argument('-M', '--ML_platform', help='specify machine learning platform to use', default='SK')
+    parser.add_argument('-w', '--write_predictions', help='write/merge predictions to PNG_DIR', action='store_true')
+    
     
     cfg = parser.parse_args()
 
@@ -542,13 +576,14 @@ if __name__ == "__main__":
                          resample_str=cfg.sample_size, min_train=cfg.min_train, feats=cfg.features, model=ML_model)
     
     for fname in cfg.files[:cfg.max_files]:
-        if exists(cp.compose_chart_name(basename(fname))) or exists(cp.compose_chart_name(basename(fname), 'original')):
-            print (">> %s:  chart already exists, skipped" % fname)
-        else:
-            results = cp.process_CSVfile (fname)
+        results, VM_list = cp.process_CSVfile (fname)
+        if cfg.write_predictions:
+            cp.output_predictions (results, VM_list)
+        if cfg.compound or cfg.separate:
+            views = cp.build_views (results, VM_list)
             if cfg.compound:
-                cp.draw_compound_chart(results, basename(fname))
+                cp.draw_compound_chart(views, basename(fname))
             if cfg.separate:
-                cp.draw_charts(results, basename(fname))
+                cp.draw_charts(views)
    
 
