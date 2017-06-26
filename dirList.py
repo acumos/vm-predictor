@@ -1,3 +1,4 @@
+from __future__ import print_function
 
 
 from stat import S_ISREG, ST_CTIME, ST_MODE, ST_SIZE, ST_MTIME
@@ -18,7 +19,7 @@ if __name__ == "__main__":
     #NOTE: use `ST_MTIME` to sort by a modification date
 
     for cdate, path in sorted(entries):
-        print time.ctime(cdate), os.path.basename(path)
+        print (time.ctime(cdate), os.path.basename(path))
 
         
 
@@ -36,7 +37,7 @@ def cdateSorted (patt):
     #NOTE: use `ST_MTIME` to sort by a modification date
 
     #for cdate, path in sorted(entries):
-    #    print time.ctime(cdate), os.path.basename(path)
+    #    print (time.ctime(cdate), os.path.basename(path))
     return sorted(entries)
 
 
@@ -52,13 +53,29 @@ def mdateFltSorted (patt):
     #NOTE: use `ST_MTIME` to sort by a modification date
 
     #for cdate, path in sorted(entries):
-    #    print time.ctime(cdate), os.path.basename(path)
+    #    print (time.ctime(cdate), os.path.basename(path))
     return sorted(entries)
 
 
 
 # Example: './tmp/Segment_20140708_122618_707_10520.mov'
-from seg import segNameToTime
+#from seg import segNameToTime
+
+def segNameToTime (path):                   # supports UTC and localtime versions
+    fields = path.split("_")                # 0='Segment', 1=yyyymmdd, 2=hhmmss 3=ffffff, 4=dddd.mov
+    tm = time.strptime (fields[1] + " " + fields[2], "%Y%m%d %H%M%S")
+    if fields[0][-3:] == "UTC":
+        t = calendar.timegm(tm)
+    else:
+        t = time.mktime(tm)
+    t += float ("0." + fields[3])
+    dur = fields[4].split('.')[0]
+    dur = float(dur) / 1000.0           # raw value is milliseconds
+    return t, dur
+
+
+
+
 
 def namedateSorted (patt):
     files = glob.glob(patt)
@@ -71,7 +88,7 @@ def namedateSorted (patt):
             entries.append (entry)
 
         except Exception as e:
-            print "Exception encountered for path", path, ":", e
+            print ("Exception encountered for path", path, ":", e)
             
     return sorted(entries)
 
