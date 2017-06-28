@@ -1,4 +1,5 @@
 from __future__ import print_function
+print ("startup")
 
 import pandas as pd
 import numpy as np
@@ -16,9 +17,11 @@ import matplotlib.pyplot as plt
 import datetime
 from matplotlib.dates import YearLocator, MonthLocator, DayLocator, HourLocator, DateFormatter
 
+
 class SK_RFmodel:
-    def __init__(self, estimators=20):
+    def __init__(self, estimators=20, output_file=None):
         self.estimators = estimators
+        self.output_file = output_file
         self.model = None
         self.features = None
         
@@ -31,8 +34,9 @@ class SK_RFmodel:
         return predicted
         
     def train (self, df_train, target_col, feat_cols):
-        #df_train = pd.read_csv(train_path)
         rf = RandomForestRegressor(n_estimators=self.estimators)
+        if self.output_file:
+            df_train[feat_cols + [target_col]].to_csv(self.output_file, index=False)
         rf.fit(df_train[feat_cols], df_train[target_col])
         self.model = rf
         self.features = feat_cols
@@ -208,6 +212,16 @@ class CromeProcessor(object):
                     df[feat] = df[self.target_col].shift(freq=pd.Timedelta (p1))
         return df
         
+        
+    def dual_resample (self, df):               # resample strings and numerics using separate methods.  This preserves the string columns.
+        df_obj = df[df.columns[df.dtypes==object]]
+        df_obj = df_obj.resample (self.resample_str).first().fillna(method='pad')
+        df = df[df.columns[df.dtypes!=object]]
+        df = df.resample (self.resample_str).mean().fillna(method='pad')
+        for col in df_obj.columns:
+            df[col] = df_obj[col]
+        return df
+        
     
     def transform_dataframe (self, df):       # could be a pipeline
         # 1. convert to datetime index & sort
@@ -220,7 +234,8 @@ class CromeProcessor(object):
         
         # 2. re-sample at desired interval, e.g. "15min" or "1H".  See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
         if self.resample_str:
-            df = df.resample (self.resample_str).mean().fillna(method='pad')
+            #df = df.resample (self.resample_str).mean().fillna(method='pad')
+            df = self.dual_resample (df)
         
         # 3. get features
         df = self.add_derived_features(df)
@@ -531,6 +546,7 @@ def cleanup (df):
         
 if __name__ == "__main__":
 
+    print ("main")
     import argparse
     parser = argparse.ArgumentParser(description = "CROME training and testing", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-t', '--target', help='target prediction column', default='cpu_usage')
@@ -572,6 +588,7 @@ if __name__ == "__main__":
         import ML_arima
         ML_func = ML_arima.ARIMA_train_and_predict
 
+    print ("constructor")
     cp = CromeProcessor (cfg.target, png_base_path=cfg.png_dir, date_col=cfg.date_col, train_size_days=cfg.train_days, predict_size_days=cfg.predict_days, 
                          resample_str=cfg.sample_size, min_train=cfg.min_train, feats=cfg.features, model=ML_model)
     
