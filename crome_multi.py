@@ -29,8 +29,14 @@ class SK_RFmodel:
         self.model = None
        
     def train (self, df_train, df_target):
+        if self.output_file:
+            print ("Writing training data to", self.output_file)
+            df_tmp = df_train.copy()
+            df_tmp['target'] = df_target
+            df_tmp.to_csv(self.output_file)
         pipeline = Pipeline([('enc', StringColumnEncoder()), ('rf', RandomForestRegressor(n_estimators=self.estimators))])
         pipeline.fit(df_train, df_target)
+        
         self.model = pipeline
         return pipeline
         
@@ -101,14 +107,13 @@ def get_busy_avg (arr, period):
             best, high = x, score
     return high
 
-
   
           
           
 class CromeProcessor(object):
     # See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases for resample strings
     def __init__ (self, target_col, date_col='DATETIMEUTC', train_size_days=31, predict_size_days=1, resample_str="15min", 
-                  png_base_path=".", min_train=300, feats=[], model=SK_RFmodel()):
+                  png_base_path=".", min_train=300, feats=[], max_entities=None, model=SK_RFmodel()):
         self.target_col = target_col
         self.predict_col = "predict"
         self.train_interval = pd.Timedelta(days=train_size_days)
@@ -129,18 +134,22 @@ class CromeProcessor(object):
         self.one_hour = pd.Timedelta('1 hour')
         self.features = feats
         self.entity_col = 'VM_ID'
-        self.max_entities = 10              # TEST VALUE !!!
+        self.max_entities = max_entities
         if len(self.features) < 1:  
             print ("CromeProcessor WARNING:  no features defined")
         self.model = model
         
 
-    def process_CSVfile (self, filename):
-        big_df = pd.read_csv(filename)
+    def process_CSVfiles (self, file_list):
+        big_df = pd.DataFrame()
+        for filename in file_list:
+            print ("reading: ", filename)
+            big_df = pd.concat([big_df, pd.read_csv(filename)])
+        print (">> %s total rows" % len(big_df))
         big_df = cleanup(big_df)
-        print (">> %s: %s total rows" % (filename, len(big_df)))
         VM_list = sorted(list(set(big_df[self.entity_col])))
         if self.max_entities:
+            print (">> applying max_entities= ", self.max_entities) 
             VM_list = VM_list[:self.max_entities]
             big_df = big_df[big_df[self.entity_col].isin(VM_list)]
         df_result = self.predict_sliding_windows (big_df, VM_list)
@@ -514,7 +523,8 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--separate', help = 'output separate charts', action='store_true')
     parser.add_argument('-r', '--randomize', help = 'randomize file list', action='store_true')
     parser.add_argument('-p', '--png_dir', help = 'destination directory for PNG files', default='./png')
-    parser.add_argument('-n', '--max_files', help = 'process at most N files', type=int, default=1000000)
+    parser.add_argument('-w', '--write_predictions', help='write/merge predictions to PNG_DIR', action='store_true')
+    parser.add_argument('-n', '--max_files', help = 'open at most N files', type=int, default=1000000)
     parser.add_argument('-m', '--min_train', help = 'minimum # samples in a training set', type=int, default=300)
     parser.add_argument('-D', '--date_col', help='column to use for datetime index', default='DATETIMEUTC')
     parser.add_argument('-T', '--train_days', help = 'size of training set in days', type=int, default=31)
@@ -523,7 +533,9 @@ if __name__ == "__main__":
     parser.add_argument('files', nargs='+', help='list of CSV files to process')
     parser.add_argument('-f', '--features', nargs='+', help='list of features to use', default=['day', 'weekday', 'hour', 'minute'])
     parser.add_argument('-M', '--ML_platform', help='specify machine learning platform to use', default='SK')
-    parser.add_argument('-w', '--write_predictions', help='write/merge predictions to PNG_DIR', action='store_true')
+    parser.add_argument('-a', '--append_files', help='process list of files as one', action='store_true')
+    parser.add_argument('-v', '--max_entities', help = 'process at most N entities (VMs)', type=int, default=10)
+    
     
     
     cfg = parser.parse_args()
@@ -550,10 +562,15 @@ if __name__ == "__main__":
 
     print ("constructor")
     cp = CromeProcessor (cfg.target, png_base_path=cfg.png_dir, date_col=cfg.date_col, train_size_days=cfg.train_days, predict_size_days=cfg.predict_days, 
-                         resample_str=cfg.sample_size, min_train=cfg.min_train, feats=cfg.features, model=ML_model)
-    
-    for fname in cfg.files[:cfg.max_files]:
-        results, VM_list = cp.process_CSVfile (fname)
+                         resample_str=cfg.sample_size, min_train=cfg.min_train, feats=cfg.features, max_entities=cfg.max_entities, model=ML_model)
+
+    if cfg.append_files:
+        file_list = [cfg.files[:cfg.max_files]]
+    else:
+        file_list = [[x] for x in cfg.files[:cfg.max_files]]
+        
+    for fnames in file_list:
+        results, VM_list = cp.process_CSVfiles (fnames)
         if cfg.write_predictions:
             cp.output_predictions (results, VM_list)
         if cfg.compound or cfg.separate:
@@ -563,4 +580,3 @@ if __name__ == "__main__":
             if cfg.separate:
                 cp.draw_charts(views)
    
-
