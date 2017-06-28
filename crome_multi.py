@@ -27,20 +27,15 @@ class SK_RFmodel:
         self.estimators = estimators
         self.output_file = output_file
         self.model = None
-        self.features = None
        
-    def train (self, df_train, target_col, feat_cols):
+    def train (self, df_train, df_target):
         pipeline = Pipeline([('enc', StringColumnEncoder()), ('rf', RandomForestRegressor(n_estimators=self.estimators))])
-        if self.output_file:
-            df_train[feat_cols + [target_col]].to_csv(self.output_file, index=False)
-        pipeline.fit(df_train[feat_cols], df_train[target_col])
-        self.features = feat_cols
+        pipeline.fit(df_train, df_target)
         self.model = pipeline
         return pipeline
         
     def predict (self, df_predict):
-        #df_predict = pd.read_csv(predict_path)
-        predicted = self.model.predict(df_predict[self.features])
+        predicted = self.model.predict(df_predict)
         return predicted
 
 
@@ -139,20 +134,6 @@ class CromeProcessor(object):
             print ("CromeProcessor WARNING:  no features defined")
         self.model = model
         
-        
-            
-    def ORIGINAL_process_CSVfile (self, filename):
-        views = []
-        df = pd.read_csv(filename)
-        print (">> %s: %s rows" % (filename, len(df)))
-        df = self.transform_dataframe (df)
-        if self.check_valid_target(df):
-            df_result = self.predict_sliding_windows (df)
-            views = self.build_views (df_result)
-        else:
-            print (">>   Aborting:  all target values are identical.")
-        return views
-
 
     def process_CSVfile (self, filename):
         big_df = pd.read_csv(filename)
@@ -174,7 +155,7 @@ class CromeProcessor(object):
         df = df[train_start : train_stop - self.smidgen]       # DatetimeIndex slices are inclusive
         if datafile_out:
             df.to_csv(datafile_out)
-        return self.model.train (df, self.target_col, self.features)
+        return self.model.train (df[self.features], df[self.target_col])
 
        
     def predict_CSV (self, CSV_filename):
@@ -230,7 +211,6 @@ class CromeProcessor(object):
         
         # 2. re-sample at desired interval, e.g. "15min" or "1H".  See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
         if self.resample_str:
-            #df = df.resample (self.resample_str).mean().fillna(method='pad')
             df = self.dual_resample (df)
         
         # 3. get features
@@ -240,7 +220,8 @@ class CromeProcessor(object):
         if len(df) <  pre_drop/2:
             print (">>   Warning:  %s rows dropped during transform operation." % (pre_drop-len(df), )) 
         
-        # TO DO :  drop all columns which are not target or features  ??
+        #4.  keep only feature and target columns
+        df = df[self.features + [self.target_col]]
         return df
 
 
@@ -259,7 +240,7 @@ class CromeProcessor(object):
             train_data = pd.concat ([train_data, df])
         bigmodel = None
         if len(train_data) >= self.min_train_rows and self.check_valid_target (train_data):
-            bigmodel = self.model.train (train_data, self.target_col, self.features)
+            bigmodel = self.model.train (train_data[self.features], train_data[self.target_col])
         return bigmodel
             
 
@@ -275,18 +256,6 @@ class CromeProcessor(object):
                 df[self.predict_col] = preds
                 df[self.entity_col] = vm
                 result = pd.concat([result, df[[self.entity_col, self.predict_col, self.target_col]]])
-        return result
-
-    def ALTERNATE_predict_timeslice_model (self, bigmodel, master_df, VM_list, predict_start, predict_stop):
-        result = {}
-        for vm in VM_list:
-            df = master_df[master_df[self.entity_col]==vm].copy()
-            df = self.transform_dataframe (df)
-            df = df[predict_start : predict_stop - self.smidgen]
-            if len(df) >= self.min_predict_rows:
-                preds = bigmodel.predict (df[self.features])
-                df[self.predict_col] = preds
-                result[vm] = df[[self.predict_col, self.target_col]]
         return result
 
             
@@ -503,8 +472,6 @@ def compute_date_step (day_count, chart_inches):
     factor = d_p_i / optimal_dates_per_inch
     step = max (int(factor + 0.5), 1)
     return step
-    
-
 
 
 def remove_column_spaces (df):
@@ -514,7 +481,6 @@ def remove_column_spaces (df):
         replace_dict[colname] = colname.replace(" ", "")
     df = df.rename(index=str, columns=replace_dict)
     return df
-
 
 
 def trim_columns (df):
@@ -535,8 +501,6 @@ def cleanup (df):
     return df
     
                          
-
-
 
     
         
