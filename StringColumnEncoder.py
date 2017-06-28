@@ -35,11 +35,14 @@ class StringColumnEncoder (BaseEstimator, TransformerMixin):
         
     def fit (self, X, y=None):
         df_obj = X[X.columns[X.dtypes==object]]                     # apply LabelEncoder to all non-numeric columns
-        df_obj.apply(lambda x: self.encoder[x.name].fit(x))
+        if df_obj.shape[1] > 0:
+            df_obj.apply(lambda x: self.encoder[x.name].fit(x))
         return self
 
     def transform (self, X):
         df_obj = X[X.columns[X.dtypes==object]]
+        if df_obj.shape[1] < 1:
+            return X
         result = df_obj.apply(lambda x: self.encoder[x.name].transform(x))
         # add the unchanged numeric columns to the result
         df_num = X[X.columns[X.dtypes!=object]]
