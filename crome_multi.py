@@ -8,6 +8,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.preprocessing import StandardScaler
 
+from sklearn.pipeline import Pipeline
 
 from os import listdir, makedirs
 from os.path import isfile, join, basename, exists
@@ -17,6 +18,9 @@ import matplotlib.pyplot as plt
 import datetime
 from matplotlib.dates import YearLocator, MonthLocator, DayLocator, HourLocator, DateFormatter
 
+from StringColumnEncoder import StringColumnEncoder
+
+
 
 class SK_RFmodel:
     def __init__(self, estimators=20, output_file=None):
@@ -24,23 +28,15 @@ class SK_RFmodel:
         self.output_file = output_file
         self.model = None
         self.features = None
-        
-    def train_and_predict(self, train_path, test_path, target_col, feat_cols, verbose=False):
-        df_train = pd.read_csv(train_path)
-        df_predict = pd.read_csv(test_path)
-        rf = RandomForestRegressor(n_estimators=self.estimators)
-        rf.fit(df_train[feat_cols], df_train[target_col])
-        predicted = rf.predict(df_predict[feat_cols])
-        return predicted
-        
+       
     def train (self, df_train, target_col, feat_cols):
-        rf = RandomForestRegressor(n_estimators=self.estimators)
+        pipeline = Pipeline([('enc', StringColumnEncoder()), ('rf', RandomForestRegressor(n_estimators=self.estimators))])
         if self.output_file:
             df_train[feat_cols + [target_col]].to_csv(self.output_file, index=False)
-        rf.fit(df_train[feat_cols], df_train[target_col])
-        self.model = rf
+        pipeline.fit(df_train[feat_cols], df_train[target_col])
         self.features = feat_cols
-        return rf
+        self.model = pipeline
+        return pipeline
         
     def predict (self, df_predict):
         #df_predict = pd.read_csv(predict_path)
