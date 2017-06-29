@@ -284,30 +284,36 @@ class CromeProcessor(object):
             result = pd.concat([result, preds])
             train_start += self.predict_interval
         return result
-
+        
 
     def build_views (self, master_df, VM_list):
         output = []
         for vm in VM_list:
             df = master_df[master_df[self.entity_col]==vm]
-            if len(df) > 0:
-                if self.showRaw:
-                    self.add_view (output, "original", df, vm, False)
-                if self.pctile:
-                    self.add_view (output, "percentile_%s" % self.pctile, df.resample("1D").apply(lambda x: np.nanpercentile(x, self.pctile)), vm, True)
-                if self.STD:
-                    self.add_view (output, "std", df.resample("1D").apply(lambda x: np.std(x)), vm, False)
-                if self.VAR:
-                    self.add_view (output, "variance", df.resample("1D").apply(lambda x: np.var(x)), vm, False)
-                if self.busyHours:
-                    df_hour = df.resample("1H").mean()
-                    self.add_view (output, "busy_hour_%sH" % self.busyHours, df_hour.resample("1D").apply(lambda x: get_busy_hour(x, self.busyHours).hour), vm, False)
-                    self.add_view (output, "busy_avg_%sH" % self.busyHours, df_hour.resample("1D").apply(lambda x: get_busy_avg(x, self.busyHours)), vm, True)
-            else:
-                print (">> build_views:  insufficient data for %s" % vm)
+            self.build_VM_views (df, vm, output)
         return output
         
 
+    def build_VM_views (self, df, vm, output):
+        if len(df) > 0:
+            if self.showRaw:
+                self.add_view (output, "original", df, vm, False)
+            if self.pctile:
+                self.add_view (output, "percentile_%s" % self.pctile, df.resample("1D").apply(lambda x: np.nanpercentile(x, self.pctile)), vm, True)
+            if self.STD:
+                self.add_view (output, "std", df.resample("1D").apply(lambda x: np.std(x)), vm, False)
+            if self.VAR:
+                self.add_view (output, "variance", df.resample("1D").apply(lambda x: np.var(x)), vm, False)
+            if self.busyHours:
+                df_hour = df.resample("1H").mean()
+                self.add_view (output, "busy_hour_%sH" % self.busyHours, df_hour.resample("1D").apply(lambda x: get_busy_hour(x, self.busyHours).hour), vm, False)
+                self.add_view (output, "busy_avg_%sH" % self.busyHours, df_hour.resample("1D").apply(lambda x: get_busy_avg(x, self.busyHours)), vm, True)
+        else:
+            print (">> build_views:  insufficient data for %s" % vm)
+    
+        
+        
+        
     def add_view (self, result_obj, view_name, dataframe, entity, calc_error = False):
         entry = {"entity": entity, "type":view_name, "data":dataframe}
         if calc_error:
@@ -522,8 +528,8 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--compound', help = 'output compound charts', action='store_true')
     parser.add_argument('-s', '--separate', help = 'output separate charts', action='store_true')
     parser.add_argument('-r', '--randomize', help = 'randomize file list', action='store_true')
-    parser.add_argument('-p', '--png_dir', help = 'destination directory for PNG files', default='./png')
-    parser.add_argument('-w', '--write_predictions', help='write/merge predictions to PNG_DIR', action='store_true')
+    parser.add_argument('-d', '--output_dir', help = 'destination directory for output files', default='./results')
+    parser.add_argument('-w', '--write_predictions', help='write/merge predictions to OUTPUT_DIR', action='store_true')
     parser.add_argument('-n', '--max_files', help = 'open at most N files', type=int, default=1000000)
     parser.add_argument('-m', '--min_train', help = 'minimum # samples in a training set', type=int, default=300)
     parser.add_argument('-D', '--date_col', help='column to use for datetime index', default='DATETIMEUTC')
@@ -561,7 +567,7 @@ if __name__ == "__main__":
         ML_func = ML_arima.ARIMA_train_and_predict
 
     print ("constructor")
-    cp = CromeProcessor (cfg.target, png_base_path=cfg.png_dir, date_col=cfg.date_col, train_size_days=cfg.train_days, predict_size_days=cfg.predict_days, 
+    cp = CromeProcessor (cfg.target, png_base_path=cfg.output_dir, date_col=cfg.date_col, train_size_days=cfg.train_days, predict_size_days=cfg.predict_days, 
                          resample_str=cfg.sample_size, min_train=cfg.min_train, feats=cfg.features, max_entities=cfg.max_entities, model=ML_model)
 
     if cfg.append_files:
