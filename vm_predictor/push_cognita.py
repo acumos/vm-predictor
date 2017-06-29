@@ -11,9 +11,8 @@ import requests
 
 #-----------------------------
 
-import asimov_client as asimov
-from asimov_client.api import Api
-
+import cognita_client 
+from cognita_client.api import Api
 
 
 #-----------------------------
@@ -22,17 +21,18 @@ from asimov_client.api import Api
 from crome import CromeProcessor
 
 
-def push_to_cognita (model, dataframe, feat_cols):
-    username = 'mt531r'
-    api = Api()
-    if not api.users.exists({'username': username}):
-        api.users.create(json={'username': username})
+def push_to_cognita (model, dataframe, feat_cols, api=None):
+    apiObj = Api()
+    #username = 'mt531r'
+    #if not api.users.exists({'username': username}):
+    #    api.users.create(json={'username': username})
     
-    template_name = 'crome-classifier-5'    
+    template_name = 'vm_predictor'    
     
-    # push the model to ASIMoV. this will take ~ 1m to build the solution (docker image)
-    asimov.push_model(model, dataframe[feat_cols], username=username, template_name=template_name, create_template=True)
-    return {'user': username, 'template': template_name}
+    # push the model to cognita. this will take ~ 1m to build the solution (docker image)
+    cognita_client.push.push_sklearn_model(model, dataframe[feat_cols], 
+                                            extra_deps=None, api=api)
+    return {'template': template_name}
     
     
     
@@ -42,7 +42,7 @@ def get_predictor (info):
     template_id = api.templates.one({'name': info['template'], 'owner': user_id})['id']
     model_id = 'latest'
 
-    resp = requests.post('http://eve.asimov.research.att.com/solutions/running', json={'user': user_id,
+    resp = requests.post('http://eve.cognita.research.att.com/solutions/running', json={'user': user_id,
                                                                                        'template': template_id,
                                                                                        'model': model_id}).json()
     ui = resp['ui']
@@ -68,11 +68,13 @@ if __name__ == "__main__":
     df = pd.read_csv(tmpfile)
     
     print ("push to cognita")
-    info = push_to_cognita (model, df, features)
+    info = push_to_cognita (model, df, features, api="http://localhost:8887/v1/models")
 
     print ("wait for microservice")
     time.sleep(5)              # give the microservice some time to load
     
+    print ("additional testing is deferred")
+    """
     print ("get predictor")
     prediction_api = get_predictor(info)
 
@@ -90,6 +92,7 @@ if __name__ == "__main__":
     preds = resp.json()
     
     print ("example predictions:", preds[:5])
+    """
 
     print ("done!")
     

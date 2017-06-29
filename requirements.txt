@@ -1,2 +1,2 @@
-asimov-client
+cognita-python-client
 sklearn

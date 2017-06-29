@@ -19,13 +19,13 @@ setup(
     description = ("VM resource predictor based on historical data and context"),
     long_description = ("VM resource predictor based on historical data and context"),
     license = "Apache",
-    package_data={},
+    package_data={'vm_predictor':['data/*']},
     scripts=['bin/run_vm-predictor_reference.py'],
     entry_points="""
     [console_scripts]
     """,
     #setup_requires=['pytest-runner'],
-    install_requires=['asimov-client',
+    install_requires=['cognita-python-client',
                       'numpy',
                       'scipy',
                       'sklearn'],
