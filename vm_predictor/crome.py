@@ -170,7 +170,23 @@ class CromeProcessor(object):
         df = df[predict_start : predict_stop - self.smidgen]    # DatetimeIndex slices are inclusive
         return self.model.predict(df)
 
-        
+    def push_model(self, CSV_filename, api):
+        #from vm_predictor import push_cognita
+        import cognita_client
+        print (">> %s:  Loading raw features, training model" % CSV_filename)
+        model = self.build_model_from_CSV(CSV_filename)
+        print (">> %s:  Reload features, push to cognita" % CSV_filename)
+        df = pd.read_csv(CSV_filename)
+
+        #info = push_cognita.push_to_cognita(model, df, self.features, api=api)
+        try:
+            cognita_client.push.push_sklearn_model(model, df[self.features],
+                                                   extra_deps=None, api=api)
+        except Exception as e:
+            print(">> Error: Push error {:}".format(str(e.args[0])).encode("utf-8"))
+            return False
+        return True
+
     def add_derived_features (self, df):
         for feat in self.features:
             if feat == 'month':
@@ -308,7 +324,9 @@ class CromeProcessor(object):
         return aae.mean()
 
             
-    def draw_charts (self, charts, filename):       
+    def draw_charts (self, charts, filename):
+        if filename is None:
+            return
         for chart in charts:
             df = chart["data"]
             title = self.target_col + ":  " + chart["type"]
@@ -321,6 +339,8 @@ class CromeProcessor(object):
 
 
     def draw_compound_chart (self, charts, filename):
+        if filename is None:
+            return
         if len(charts) > 0:
             outfile = self.compose_chart_name (filename)
             ch_list = []
@@ -336,6 +356,8 @@ class CromeProcessor(object):
             
         
     def compose_chart_name(self, entity, chart_type="", subscriber=None):
+        if len(self.png_base)==0:
+            return None
         output_path = join(self.png_base, self.target_col)
         if chart_type:
             chart_type = "-" + chart_type
@@ -351,6 +373,8 @@ class CromeProcessor(object):
         
             
 def draw_chart (chart_title, predicted, actual, dates, png_filename):       # three pd.Series
+    if png_filename is None:
+        return
     chart_width, chart_height = 11, 8.5
     fig = plt.figure(figsize=(chart_width,chart_height))
     day_count = 1 + (dates[-1] - dates[0]).days    
@@ -378,6 +402,8 @@ def draw_chart (chart_title, predicted, actual, dates, png_filename):       # th
     
     
 def draw_multi_charts (chartlist, main_title, outputfile):
+    if outputfile is None:
+        return
     chart_width, chart_height = 14, 8.5
     fig = plt.figure(figsize=(chart_width,chart_height))
     rows, cols = get_page_dim (len(chartlist))
@@ -439,7 +465,7 @@ def main():
     parser.add_argument('-c', '--compound', help = 'output compound charts', action='store_true')
     parser.add_argument('-s', '--separate', help = 'output separate charts', action='store_true')
     parser.add_argument('-r', '--randomize', help = 'randomize file list', action='store_true')
-    parser.add_argument('-p', '--png_dir', help = 'destination directory for PNG files', default='./png')
+    parser.add_argument('-p', '--png_dir', help = 'destination directory for PNG files', default='')
     parser.add_argument('-n', '--max_files', help = 'process at most N files', type=int, default=1000000)
     parser.add_argument('-m', '--min_train', help = 'minimum # samples in a training set', type=int, default=300)
     parser.add_argument('-D', '--date_col', help='column to use for datetime index', default='DATETIMEUTC')
@@ -449,7 +475,8 @@ def main():
     parser.add_argument('files', nargs='+', help='list of CSV files to process')
     parser.add_argument('-f', '--features', nargs='+', help='list of features to use', default=['day', 'weekday', 'hour', 'minute'])
     parser.add_argument('-M', '--ML_platform', help='specify machine learning platform to use', default='SK')
-    
+    parser.add_argument('-a', '--push_address', help='server address to push the model', default='')
+
     cfg = parser.parse_args()
 
     if cfg.randomize:
@@ -476,7 +503,9 @@ def main():
                          resample_str=cfg.sample_size, min_train=cfg.min_train, feats=cfg.features, model=ML_model)
     
     for fname in cfg.files[:cfg.max_files]:
-        if exists(cp.compose_chart_name(basename(fname))) or exists(cp.compose_chart_name(basename(fname), 'original')):
+        if len(cfg.push_address)!=0:
+            cp.push_model(fname, cfg.push_address)
+        elif len(cfg.png_dir)!=0 and (exists(cp.compose_chart_name(basename(fname))) or exists(cp.compose_chart_name(basename(fname), 'original'))):
             print (">> %s:  chart already exists, skipped" % fname)
         else:
             results = cp.process_CSVfile (fname)

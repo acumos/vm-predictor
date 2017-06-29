@@ -5,8 +5,6 @@ import time
 import pandas as pd
 import numpy as np
 
-from sklearn.ensemble import RandomForestRegressor        
-
 import requests
 
 #-----------------------------
@@ -14,11 +12,8 @@ import requests
 import cognita_client 
 from cognita_client.api import Api
 
-
 #-----------------------------
 
-
-from crome import CromeProcessor
 
 
 def push_to_cognita (model, dataframe, feat_cols, api=None):
@@ -27,10 +22,10 @@ def push_to_cognita (model, dataframe, feat_cols, api=None):
     #if not api.users.exists({'username': username}):
     #    api.users.create(json={'username': username})
     
-    template_name = 'vm_predictor'    
+    template_name = 'vm_predictor'
     
     # push the model to cognita. this will take ~ 1m to build the solution (docker image)
-    cognita_client.push.push_sklearn_model(model, dataframe[feat_cols], 
+    cognita_client.push.push_sklearn_model(model, dataframe[feat_cols],
                                             extra_deps=None, api=api)
     return {'template': template_name}
     
@@ -38,8 +33,8 @@ def push_to_cognita (model, dataframe, feat_cols, api=None):
     
 def get_predictor (info):
     api = Api()
-    user_id = api.users.one({'username': info['user']})['id']
-    template_id = api.templates.one({'name': info['template'], 'owner': user_id})['id']
+    #user_id = api.users.one({'username': info['user']})['id']
+    #template_id = api.templates.one({'name': info['template'], 'owner': user_id})['id']
     model_id = 'latest'
 
     resp = requests.post('http://eve.cognita.research.att.com/solutions/running', json={'user': user_id,
@@ -52,9 +47,9 @@ def get_predictor (info):
     print("Microservice running at {}".format(ui))
     return predictor_api
     
-    
-    
-if __name__ == "__main__":
+
+def main():
+    from crome import CromeProcessor
     import sys
     training_filename = sys.argv[1]
     
@@ -95,6 +90,7 @@ if __name__ == "__main__":
     """
 
     print ("done!")
-    
-    
-    
+
+
+if __name__ == "__main__":
+    main()
