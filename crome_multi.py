@@ -385,7 +385,7 @@ class CromeProcessor(object):
             if len(df_vm) != big_size:
                 print ("  dropped %s duplicate rows" % (big_size - len(df_vm),))
             jdata = df_vm.to_json(orient='index')
-            record = {'vm':vm, 'features':self.features, 'target':self.target_col, 'interval':self.resample_str, 'train_days':self.train_interval.days, 'predict_days':self.predict_interval.days, 'data':jdata}
+            record = {'entity':vm, 'features':self.features, 'target':self.target_col, 'interval':self.resample_str, 'train_days':self.train_interval.days, 'predict_days':self.predict_interval.days, 'data':jdata}
             with open(filepath, "w") as fp:
                 json.dump(record, fp)
             print (">>   wrote: ", filepath)
