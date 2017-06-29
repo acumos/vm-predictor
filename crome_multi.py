@@ -340,9 +340,7 @@ class CromeProcessor(object):
             title += "\n" + chart["entity"] + " " + self.resample_str + " train %dd test %dd" % (self.train_interval.days, self.predict_interval.days)
             title += "\n[%s]" % " ".join(self.features)
             outfile = self.compose_chart_name (chart["entity"], chart["type"])
-            if exists(outfile):
-                print (">> %s:  chart already exists, skipped" % outfile)
-            else:
+            if outfile:
                 draw_chart(title, df[self.predict_col], df[self.target_col], df.index, outfile)
 
 
@@ -357,6 +355,8 @@ class CromeProcessor(object):
             # Now draw compound charts for each entity
             for entity, charts in grouped.items():              # python 3 syntax
                 outfile = self.compose_chart_name (entity)
+                if not outfile:
+                    continue
                 ch_list = []
                 for chart in charts:
                     df = chart["data"]
@@ -369,41 +369,33 @@ class CromeProcessor(object):
                 draw_multi_charts (ch_list, bigtitle, outfile)
 
 
-    def output_predictions (self, master_df, VM_list, skip_existing=False):
-        master_df[self.date_col] = master_df.index
+    def output_predictions (self, master_df, VM_list):
+        import json
         for vm in VM_list:
             df_vm = master_df[master_df[self.entity_col]==vm]
-            filepath = self.compose_file_name (vm, suffix="predict", extension=".csv")
+            filepath = self.compose_file_name (vm, suffix="predict", extension=".json", skip_existing=False)
             if exists (filepath):
-                if skip_existing:
-                    print ("  already exists")
-                    continue
                 # merge data w/ existing
-                df_orig = pd.read_csv(filepath)
+                with open(filepath) as fp:
+                    j_dict = json.load(fp)
+                df_orig = pd.read_json(j_dict['data'], orient='index')                
                 df_vm = pd.concat([df_orig, df_vm])
             big_size = len(df_vm)
-            df_vm = df_vm.drop_duplicates(subset=self.date_col)
+            df_vm = df_vm[~df_vm.index.duplicated(keep='first')]
             if len(df_vm) != big_size:
                 print ("  dropped %s duplicate rows" % (big_size - len(df_vm),))
-            df_vm[[self.date_col, self.predict_col, self.target_col]].to_csv(filepath, index=False)
+            jdata = df_vm.to_json(orient='index')
+            record = {'vm':vm, 'features':self.features, 'target':self.target_col, 'interval':self.resample_str, 'train_days':self.train_interval.days, 'predict_days':self.predict_interval.days, 'data':jdata}
+            with open(filepath, "w") as fp:
+                json.dump(record, fp)
             print (">>   wrote: ", filepath)
 
-            
+       
     def compose_chart_name(self, entity, chart_type="", subscriber=None):
-        output_path = join(self.png_base, self.target_col)
-        if chart_type:
-            chart_type = "-" + chart_type
-        try:
-            makedirs (output_path)
-        except OSError:
-            pass
-        if subscriber:
-            return join(output_path, subscriber) + "-" + entity + chart_type + ".png"
-        else:
-            return join(output_path, entity) + chart_type + ".png"
-        
+        return self.compose_file_name (entity, suffix=chart_type)
+    
 
-    def compose_file_name(self, entity, suffix="", extension=".png"):
+    def compose_file_name(self, entity, suffix="", extension=".png", skip_existing=True):
         output_path = join(self.png_base, self.target_col)
         if suffix:
             suffix = "-" + suffix
@@ -411,7 +403,11 @@ class CromeProcessor(object):
             makedirs (output_path)
         except OSError:
             pass
-        return join(output_path, entity) + suffix + extension
+        filename = join(output_path, entity) + suffix + extension
+        if skip_existing and exists(filename):
+            print ("  skip existing file: ", filename)
+            filename = None
+        return filename
 
 
         
@@ -536,7 +532,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--separate', help = 'output separate charts', action='store_true')
     parser.add_argument('-r', '--randomize', help = 'randomize file list', action='store_true')
     parser.add_argument('-o', '--output_dir', help = 'destination directory for output files', default='./results')
-    parser.add_argument('-w', '--write_predictions', help='write/merge predictions to OUTPUT_DIR', action='store_true')
+    parser.add_argument('-p', '--write_predictions', help='write/merge predictions to OUTPUT_DIR', action='store_true')
     parser.add_argument('-n', '--max_files', help = 'open at most N files', type=int, default=1000000)
     parser.add_argument('-m', '--min_train', help = 'minimum # samples in a training set', type=int, default=300)
     parser.add_argument('-D', '--date_col', help='column to use for datetime index', default='DATETIMEUTC')
