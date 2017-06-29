@@ -310,8 +310,6 @@ class CromeProcessor(object):
                 self.add_view (output, "busy_avg_%sH" % self.busyHours, df_hour.resample("1D").apply(lambda x: get_busy_avg(x, self.busyHours)), vm, True)
         else:
             print (">> build_views:  insufficient data for %s" % vm)
-    
-        
         
         
     def add_view (self, result_obj, view_name, dataframe, entity, calc_error = False):
@@ -333,8 +331,8 @@ class CromeProcessor(object):
         return aae.mean()
 
             
-    def draw_charts (self, charts):
-        for chart in charts:
+    def draw_charts (self, chart_list):
+        for chart in chart_list:
             df = chart["data"]
             title = self.target_col + ":  " + chart["type"]
             if "error" in chart:
@@ -343,23 +341,32 @@ class CromeProcessor(object):
             title += "\n[%s]" % " ".join(self.features)
             outfile = self.compose_chart_name (chart["entity"], chart["type"])
             if exists(outfile):
-                print (">> %s:  chart already exists, skipped" % fname)
-            draw_chart(title, df[self.predict_col], df[self.target_col], df.index, outfile)
+                print (">> %s:  chart already exists, skipped" % outfile)
+            else:
+                draw_chart(title, df[self.predict_col], df[self.target_col], df.index, outfile)
 
 
-    def draw_compound_chart (self, charts, filename):
-        if len(charts) > 0:
-            outfile = self.compose_chart_name (filename)
-            ch_list = []
-            for chart in charts:
-                df = chart["data"]
-                title = chart["type"]
-                if "error" in chart:
-                    title += " (err=%5.3f)" % chart["error"]
-                ch_list.append ((title, df[self.predict_col], df[self.target_col], df.index))
-            bigtitle = "%s %s %s train=%dd test=%dd" % (self.target_col, filename, self.resample_str, self.train_interval.days, self.predict_interval.days)
-            bigtitle += "\n[%s]" % " ".join(self.features)
-            draw_multi_charts (ch_list, bigtitle, outfile)
+    def draw_compound_charts (self, chart_list):
+        if len(chart_list) > 0:
+            # Incoming charts may contain multiple entities.  Group by entity first.
+            from collections import defaultdict
+            grouped=defaultdict(list)  
+            for chart in chart_list:  
+                grouped[chart['entity']].append(chart)
+
+            # Now draw compound charts for each entity
+            for entity, charts in grouped.items():              # python 3 syntax
+                outfile = self.compose_chart_name (entity)
+                ch_list = []
+                for chart in charts:
+                    df = chart["data"]
+                    title = chart["type"]
+                    if "error" in chart:
+                        title += " (err=%5.3f)" % chart["error"]
+                    ch_list.append ((title, df[self.predict_col], df[self.target_col], df.index))
+                bigtitle = "%s %s %s train=%dd test=%dd" % (self.target_col, entity, self.resample_str, self.train_interval.days, self.predict_interval.days)
+                bigtitle += "\n[%s]" % " ".join(self.features)
+                draw_multi_charts (ch_list, bigtitle, outfile)
 
 
     def output_predictions (self, master_df, VM_list, skip_existing=False):
@@ -528,7 +535,7 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--compound', help = 'output compound charts', action='store_true')
     parser.add_argument('-s', '--separate', help = 'output separate charts', action='store_true')
     parser.add_argument('-r', '--randomize', help = 'randomize file list', action='store_true')
-    parser.add_argument('-d', '--output_dir', help = 'destination directory for output files', default='./results')
+    parser.add_argument('-o', '--output_dir', help = 'destination directory for output files', default='./results')
     parser.add_argument('-w', '--write_predictions', help='write/merge predictions to OUTPUT_DIR', action='store_true')
     parser.add_argument('-n', '--max_files', help = 'open at most N files', type=int, default=1000000)
     parser.add_argument('-m', '--min_train', help = 'minimum # samples in a training set', type=int, default=300)
@@ -582,7 +589,7 @@ if __name__ == "__main__":
         if cfg.compound or cfg.separate:
             views = cp.build_views (results, VM_list)
             if cfg.compound:
-                cp.draw_compound_chart(views, basename(fname))
+                cp.draw_compound_charts(views)
             if cfg.separate:
                 cp.draw_charts(views)
    
