@@ -200,26 +200,35 @@ class CromeProcessor(object):
                 df[self.entity_col] = vm
                 result = pd.concat([result, df[[self.entity_col, self.predict_col, self.target_col]]])
         return result
-
+        
             
     def predict_sliding_windows (self, master_df, VM_list):
-        train_start = min(pd.to_datetime(master_df[self.date_col]))        # TBD:  allow user to specify start date
+        train_start, range_end = self.find_time_range (master_df)       # TBD:  allow user to specify start/stop dates
         result = pd.DataFrame()
         while True:
             # per day:  train ONE model for all VMs.   Then predict EACH VM separately.
             train_stop = train_start + self.train_interval
             predict_start = train_stop
+            if predict_start > range_end:
+                break
             predict_stop = predict_start + self.predict_interval
             print (">>    train from %s to %s;  predict from %s to %s" % (train_start, train_stop, predict_start, predict_stop))
             xmodel = self.train_timeslice_model (master_df, VM_list, train_start, train_stop)
-            if not xmodel:
-                break
-            preds = self.predict_timeslice_model (xmodel, master_df, VM_list, predict_start, predict_stop)
-            result = pd.concat([result, preds])
-            train_start += self.predict_interval
+            if xmodel:
+                preds = self.predict_timeslice_model (xmodel, master_df, VM_list, predict_start, predict_stop)
+                result = pd.concat([result, preds])
+                train_start += self.predict_interval
         return result
         
 
+    def find_time_range (self, df):
+        print ("find time range...")
+        times = pd.to_datetime(df[self.date_col])
+        range_start, range_end = min(times), max(times)        
+        print ("  %s to %s" % (range_start, range_end))
+        return range_start, range_end
+        
+        
     def build_views (self, master_df, VM_list):
         output = []
         for vm in VM_list:
@@ -478,7 +487,7 @@ if __name__ == "__main__":
     parser.add_argument('-M', '--ML_type', help='specify machine learning model type to use', default='RF')
     parser.add_argument('-a', '--append_files', help='process list of files as one', action='store_true')
     parser.add_argument('-v', '--max_entities', help = 'process at most N entities (VMs)', type=int, default=10)
-    parser.add_argument('-i', '--set_param', help='set ML model integer parameter', action='append', nargs=2)
+    parser.add_argument('-i', '--set_param', help='set ML model integer parameter', action='append', nargs=2, default=[])
     
     
     cfg = parser.parse_args()
