@@ -20,74 +20,6 @@ from matplotlib.dates import YearLocator, MonthLocator, DayLocator, HourLocator,
 
 from StringColumnEncoder import StringColumnEncoder
 
-
-
-class SK_RFmodel:
-    def __init__(self, estimators=20, output_file=None):
-        self.estimators = estimators
-        self.output_file = output_file
-        self.model = None
-       
-    def train (self, df_train, df_target):
-        if self.output_file:
-            print ("Writing training data to", self.output_file)
-            df_tmp = df_train.copy()
-            df_tmp['target'] = df_target
-            df_tmp.to_csv(self.output_file)
-        pipeline = Pipeline([('enc', StringColumnEncoder()), ('rf', RandomForestRegressor(n_estimators=self.estimators))])
-        pipeline.fit(df_train, df_target)
-        
-        self.model = pipeline
-        return pipeline
-        
-    def predict (self, df_predict):
-        predicted = self.model.predict(df_predict)
-        return predicted
-
-
-
-        
-def SK_train_and_predict(train_path, test_path, target_col, feat_cols, verbose=False):
-    df_train = pd.read_csv(train_path)
-    df_predict = pd.read_csv(test_path)
-    rf = RandomForestRegressor(n_estimators=20)
-    rf.fit(df_train[feat_cols], df_train[target_col])
-    predicted = rf.predict(df_predict[feat_cols])
-    return predicted
-
-
-
-def Scaler_train_and_predict(train_path, test_path, target_col, feat_cols, verbose=False):
-    df_train = pd.read_csv(train_path)
-    df_predict = pd.read_csv(test_path)
-    x_scaler = StandardScaler().fit(df_train[feat_cols])
-    Xt = x_scaler.transform(df_train[feat_cols])
-    rf = RandomForestRegressor(n_estimators=20).fit(Xt, df_train[target_col])
-    predicted = rf.predict(x_scaler.transform(df_predict[feat_cols]))
-    return predicted
-    
-
-def ET_train_and_predict(train_path, test_path, target_col, feat_cols, verbose=False):
-    df_train = pd.read_csv(train_path)
-    df_predict = pd.read_csv(test_path)
-    #rf = ExtraTreesRegressor(n_estimators=20)
-    #rf = ExtraTreesRegressor(n_estimators=10)
-    rf = ExtraTreesRegressor(n_estimators=5)
-    rf.fit(df_train[feat_cols], df_train[target_col])
-    predicted = rf.predict(df_predict[feat_cols])
-    return predicted
-    
-
-
-def ETS_train_and_predict(train_path, test_path, target_col, feat_cols, verbose=False):
-    df_train = pd.read_csv(train_path)
-    df_predict = pd.read_csv(test_path)
-    x_scaler = StandardScaler().fit(df_train[feat_cols])
-    Xt = x_scaler.transform(df_train[feat_cols])
-    rf = ExtraTreesRegressor(n_estimators=50).fit(Xt, df_train[target_col])
-    predicted = rf.predict(x_scaler.transform(df_predict[feat_cols]))
-    return predicted
-
     
     
 def get_busy_hour (arr, period):
@@ -113,7 +45,7 @@ def get_busy_avg (arr, period):
 class CromeProcessor(object):
     # See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases for resample strings
     def __init__ (self, target_col, date_col='DATETIMEUTC', train_size_days=31, predict_size_days=1, resample_str="15min", 
-                  png_base_path=".", min_train=300, feats=[], max_entities=None, model=SK_RFmodel()):
+                  png_base_path=".", min_train=300, feats=[], max_entities=None, model=RandomForestRegressor()):
         self.target_col = target_col
         self.predict_col = "predict"
         self.train_interval = pd.Timedelta(days=train_size_days)
@@ -164,7 +96,8 @@ class CromeProcessor(object):
         df = df[train_start : train_stop - self.smidgen]       # DatetimeIndex slices are inclusive
         if datafile_out:
             df.to_csv(datafile_out)
-        return self.model.train (df[self.features], df[self.target_col])
+        #return self.model.train (df[self.features], df[self.target_col])
+        return self.model.fit (df[self.features], df[self.target_col])
 
        
     def predict_CSV (self, CSV_filename):
@@ -226,8 +159,8 @@ class CromeProcessor(object):
         df = self.add_derived_features(df)
         pre_drop = len(df)
         df.dropna(subset=self.features, inplace=True)
-        if len(df) <  pre_drop/2:
-            print (">>   Warning:  %s rows dropped during transform operation." % (pre_drop-len(df), )) 
+        #if len(df) <  pre_drop/2:
+        #    print (">>   Warning:  %s rows dropped during transform operation." % (pre_drop-len(df), )) 
         
         #4.  keep only feature and target columns
         df = df[self.features + [self.target_col]]
@@ -243,13 +176,14 @@ class CromeProcessor(object):
         train_data = pd.DataFrame()
         for vm in VM_list:
             df = master_df[master_df[self.entity_col]==vm].copy()
-            print (">>      %s:  add %s rows " % (vm, len(df)))
+            #print (">>      %s:  add %s rows " % (vm, len(df)))
             df = self.transform_dataframe (df)
             df = df[train_start : train_stop - self.smidgen]
             train_data = pd.concat ([train_data, df])
         bigmodel = None
         if len(train_data) >= self.min_train_rows and self.check_valid_target (train_data):
-            bigmodel = self.model.train (train_data[self.features], train_data[self.target_col])
+            print (">>      training %s entities %s total rows" % (len(VM_list), len(train_data)))
+            bigmodel = self.model.fit (train_data[self.features], train_data[self.target_col])
         return bigmodel
             
 
@@ -541,10 +475,10 @@ if __name__ == "__main__":
     parser.add_argument('-S', '--sample_size', help='desired duration of train/predict units.  See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases', default='15min')
     parser.add_argument('files', nargs='+', help='list of CSV files to process')
     parser.add_argument('-f', '--features', nargs='+', help='list of features to use', default=['day', 'weekday', 'hour', 'minute'])
-    parser.add_argument('-M', '--ML_platform', help='specify machine learning platform to use', default='SK')
+    parser.add_argument('-M', '--ML_type', help='specify machine learning model type to use', default='RF')
     parser.add_argument('-a', '--append_files', help='process list of files as one', action='store_true')
     parser.add_argument('-v', '--max_entities', help = 'process at most N entities (VMs)', type=int, default=10)
-    
+    parser.add_argument('-i', '--set_param', help='set ML model integer parameter', action='append', nargs=2)
     
     
     cfg = parser.parse_args()
@@ -554,25 +488,31 @@ if __name__ == "__main__":
         shuffle (cfg.files)
 
     ML_model = None
-    if cfg.ML_platform == "H2O":
+    if cfg.ML_type == "H2O":
         import ML_h2o
         ML_func = ML_h2o.H2O_train_and_predict
-    elif cfg.ML_platform == "Scaler":
-        ML_func = Scaler_train_and_predict
-    elif cfg.ML_platform == "SK":
-        ML_model = SK_RFmodel()
-    elif cfg.ML_platform == "ET":
-        ML_func = ET_train_and_predict
-    elif cfg.ML_platform == "ETS":
-        ML_func = ETS_train_and_predict
-    elif cfg.ML_platform == "ARIMA":
+    elif cfg.ML_type == "RF_SC":
+        ML_model = Pipeline([('enc', StringColumnEncoder()), ('sc', StandardScaler()), ('rf', RandomForestRegressor(n_estimators=20))])
+    elif cfg.ML_type == "RF":
+        ML_model = Pipeline([('enc', StringColumnEncoder()), ('rf', RandomForestRegressor(n_estimators=20))])
+    elif cfg.ML_type == "ET":
+        ML_model = Pipeline([('enc', StringColumnEncoder()), ('et', ExtraTreesRegressor(n_estimators=20))]) 
+    elif cfg.ML_type == "ET_SC":
+        ML_model = Pipeline([('enc', StringColumnEncoder()), ('sc', StandardScaler()), ('et', ExtraTreesRegressor(n_estimators=20))])
+    elif cfg.ML_type == "ARIMA":
         import ML_arima
         ML_func = ML_arima.ARIMA_train_and_predict
 
+    # support for model-specific parameters
+    if len(cfg.set_param) > 0:
+        param_dict = {k:int(v) for [k,v] in cfg.set_param}
+        ML_model.set_params (**param_dict)
+        print ("set model params:", param_dict)
+        
     print ("constructor")
     cp = CromeProcessor (cfg.target, png_base_path=cfg.output_dir, date_col=cfg.date_col, train_size_days=cfg.train_days, predict_size_days=cfg.predict_days, 
                          resample_str=cfg.sample_size, min_train=cfg.min_train, feats=cfg.features, max_entities=cfg.max_entities, model=ML_model)
-
+                         
     if cfg.append_files:
         file_list = [cfg.files[:cfg.max_files]]
     else:
@@ -589,3 +529,4 @@ if __name__ == "__main__":
             if cfg.separate:
                 cp.draw_charts(views)
    
+    
