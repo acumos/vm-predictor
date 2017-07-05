@@ -151,12 +151,13 @@ class CromeProcessor(object):
         return views
 
        
-    def build_model_from_CSV (self, CSV_filename, datafile_out=None):
+    def build_model_from_CSV (self, CSV_filename, datafile_out=None, is_raw_data=True):
         df = pd.read_csv(CSV_filename)
-        df = self.transform_dataframe (df)
-        train_start = df.index[0]                              # TBD:  add optional start date
-        train_stop = train_start + self.train_interval
-        df = df[train_start : train_stop - self.smidgen]       # DatetimeIndex slices are inclusive
+        if is_raw_data:
+            df = self.transform_dataframe (df)
+            train_start = df.index[0]                              # TBD:  add optional start date
+            train_stop = train_start + self.train_interval
+            df = df[train_start : train_stop - self.smidgen]       # DatetimeIndex slices are inclusive
         if datafile_out:
             df.to_csv(datafile_out)
         return self.model.train (df, self.target_col, self.features)
@@ -170,11 +171,11 @@ class CromeProcessor(object):
         df = df[predict_start : predict_stop - self.smidgen]    # DatetimeIndex slices are inclusive
         return self.model.predict(df)
 
-    def push_model(self, CSV_filename, api):
+    def push_model(self, CSV_filename, api, is_raw_data=False):
         #from vm_predictor import push_cognita
         import cognita_client
         print (">> %s:  Loading raw features, training model" % CSV_filename)
-        model = self.build_model_from_CSV(CSV_filename)
+        model = self.build_model_from_CSV(CSV_filename, is_raw_data=is_raw_data)
         print (">> %s:  Reload features, push to cognita" % CSV_filename)
         df = pd.read_csv(CSV_filename)
 
@@ -186,6 +187,23 @@ class CromeProcessor(object):
             print(">> Error: Push error {:}".format(str(e.args[0])).encode("utf-8"))
             return False
         return True
+
+    def dump_model(self, CSV_filename, model_dir, is_raw_data=False):
+        #from vm_predictor import push_cognita
+        import cognita_client
+        from cognita_client.dump import dump_sklearn_model
+        from os import path, makedirs
+
+        if not path.isdir(model_dir) or not path.exists(model_dir):
+            makedirs(model_dir)
+
+        print (">> %s:  Loading raw features, training model" % CSV_filename)
+        model = self.build_model_from_CSV(CSV_filename, is_raw_data=is_raw_data)
+        print (">> %s:  Reload features, dump to file" % CSV_filename)
+        df = pd.read_csv(CSV_filename)
+        dump_sklearn_model(model, df[self.features], model_dir)
+        return True
+
 
     def add_derived_features (self, df):
         for feat in self.features:
@@ -215,7 +233,7 @@ class CromeProcessor(object):
         DT = 'DT'
         df[DT] = pd.to_datetime(df[self.date_col])
         df = df.sort_values(DT)
-        df.index = pd.DatetimeIndex(df['DT'])    
+        df.index = pd.DatetimeIndex(df['DT'])
         df.drop (self.date_col, axis=1, inplace=True)
         df.drop (DT, axis=1, inplace=True)
         
@@ -475,7 +493,9 @@ def main():
     parser.add_argument('files', nargs='+', help='list of CSV files to process')
     parser.add_argument('-f', '--features', nargs='+', help='list of features to use', default=['day', 'weekday', 'hour', 'minute'])
     parser.add_argument('-M', '--ML_platform', help='specify machine learning platform to use', default='SK')
+    parser.add_argument('-R', '--is_raw_data', help='for the push and dump options, perform feature processing', default=False, action='store_true')
     parser.add_argument('-a', '--push_address', help='server address to push the model', default='')
+    parser.add_argument('-d', '--dump_pickle', help='dump model to a pickle directory for local running', default='')
 
     cfg = parser.parse_args()
 
@@ -499,12 +519,15 @@ def main():
         from vm_predictor import ML_arima
         ML_func = ML_arima.ARIMA_train_and_predict
 
-    cp = CromeProcessor (cfg.target, png_base_path=cfg.png_dir, date_col=cfg.date_col, train_size_days=cfg.train_days, predict_size_days=cfg.predict_days, 
-                         resample_str=cfg.sample_size, min_train=cfg.min_train, feats=cfg.features, model=ML_model)
+    cp = CromeProcessor (cfg.target, png_base_path=cfg.png_dir, date_col=cfg.date_col, train_size_days=cfg.train_days,
+                         predict_size_days=cfg.predict_days, resample_str=cfg.sample_size, min_train=cfg.min_train,
+                         feats=cfg.features, model=ML_model)
     
     for fname in cfg.files[:cfg.max_files]:
         if len(cfg.push_address)!=0:
-            cp.push_model(fname, cfg.push_address)
+            cp.push_model(fname, cfg.push_address, cfg.is_raw_data)
+        elif len(cfg.dump_pickle)!=0:
+            cp.dump_model(fname, cfg.dump_pickle, cfg.is_raw_data)
         elif len(cfg.png_dir)!=0 and (exists(cp.compose_chart_name(basename(fname))) or exists(cp.compose_chart_name(basename(fname), 'original'))):
             print (">> %s:  chart already exists, skipped" % fname)
         else:

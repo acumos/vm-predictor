@@ -22,7 +22,11 @@ This repo currently includes example training and testing data.  You can create 
 and push it to a locally running Cognita mock server with the following example.
 
 ```
+# training + push to a running server
 ./bin/run_local.sh -t cpu_usage -a "http://localhost:8887/v1/models" data/train.csv
+
+# training + dump for a single model in a directory
+./bin/run_local.sh -t cpu_usage -d single_model -f day weekday hour minute hist-1D VM_ID -d model data/train.csv
 ```
 
 
@@ -79,8 +83,13 @@ optional arguments:
                         'hour', 'minute'])
   -M ML_PLATFORM, --ML_platform ML_PLATFORM
                         specify machine learning platform to use (default: SK)
+  -R, --is_raw_data     for the push and dump options, perform feature
+                        processing (default: False)
   -a PUSH_ADDRESS, --push_address PUSH_ADDRESS
                         server address to push the model (default: )
+  -d DUMP_PICKLE, --dump_pickle DUMP_PICKLE
+                        dump model to a pickle directory for local running
+                        (default: )
 ```
 
 
