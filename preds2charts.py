@@ -30,7 +30,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--separate', help = 'generate separate charts', action='store_true')
     parser.add_argument('-o', '--output_dir', help = 'destination directory for output files', default='./results')
     parser.add_argument('-n', '--max_files', help = 'open at most N files', type=int, default=1000000)
-    parser.add_argument('files', nargs='+', help='list of CSV files to process')
+    parser.add_argument('files', nargs='+', help='list of prediction (JSON) files to process')
     parser.add_argument('-v', '--max_entities', help = 'process at most N entities (VMs)', type=int, default=10)
     
     cfg = parser.parse_args()

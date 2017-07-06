@@ -483,7 +483,7 @@ if __name__ == "__main__":
     parser.add_argument('-P', '--predict_days', help = 'number of days to predict per iteration', type=int, default=1)
     parser.add_argument('-S', '--sample_size', help='desired duration of train/predict units.  See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases', default='15min')
     parser.add_argument('files', nargs='+', help='list of CSV files to process')
-    parser.add_argument('-f', '--features', nargs='+', help='list of features to use', default=['day', 'weekday', 'hour', 'minute'])
+    parser.add_argument('-f', '--features', nargs='+', help='list of features to use', default=['month', 'day', 'weekday', 'hour', 'minute'])
     parser.add_argument('-M', '--ML_type', help='specify machine learning model type to use', default='RF')
     parser.add_argument('-a', '--append_files', help='process list of files as one', action='store_true')
     parser.add_argument('-v', '--max_entities', help = 'process at most N entities (VMs)', type=int, default=10)
