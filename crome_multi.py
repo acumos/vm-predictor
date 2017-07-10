@@ -73,6 +73,20 @@ class CromeProcessor(object):
         
 
     def process_CSVfiles (self, file_list):
+        big_df, VM_list = self.preprocess_files(file_list)
+        df_result = self.predict_sliding_windows (big_df, VM_list)
+        return df_result, VM_list
+
+       
+    def build_model_from_CSV (self, file_list):                         # Note:  all files in the list will be appended
+        master_df, VM_list = self.preprocess_files(file_list)
+        train_start, range_end = self.find_time_range (master_df)       # TBD:  allow user to specify start/stop dates
+        train_stop = train_start + self.train_interval
+        xmodel = self.train_timeslice_model (master_df, VM_list, train_start, train_stop)
+        return xmodel
+
+
+    def preprocess_files (self, file_list):
         big_df = pd.DataFrame()
         for filename in file_list:
             print ("reading: ", filename)
@@ -84,22 +98,9 @@ class CromeProcessor(object):
             print (">> applying max_entities= ", self.max_entities) 
             VM_list = VM_list[:self.max_entities]
             big_df = big_df[big_df[self.entity_col].isin(VM_list)]
-        df_result = self.predict_sliding_windows (big_df, VM_list)
-        return df_result, VM_list
+        return big_df, VM_list
 
-       
-    def build_model_from_CSV (self, CSV_filename, datafile_out=None):
-        df = pd.read_csv(CSV_filename)
-        df = self.transform_dataframe (df)
-        train_start = df.index[0]                              # TBD:  add optional start date
-        train_stop = train_start + self.train_interval
-        df = df[train_start : train_stop - self.smidgen]       # DatetimeIndex slices are inclusive
-        if datafile_out:
-            df.to_csv(datafile_out)
-        #return self.model.train (df[self.features], df[self.target_col])
-        return self.model.fit (df[self.features], df[self.target_col])
-
-       
+        
     def predict_CSV (self, CSV_filename):
         df = pd.read_csv(CSV_filename)
         df = self.transform_dataframe (df)
