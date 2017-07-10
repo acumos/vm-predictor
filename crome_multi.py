@@ -70,14 +70,14 @@ class CromeProcessor(object):
         if len(self.features) < 1:  
             print ("CromeProcessor WARNING:  no features defined")
         self.model = model
-        
+
 
     def process_CSVfiles (self, file_list):
         big_df, VM_list = self.preprocess_files(file_list)
         df_result = self.predict_sliding_windows (big_df, VM_list)
         return df_result, VM_list
 
-       
+        
     def build_model_from_CSV (self, file_list):                         # Note:  all files in the list will be appended
         master_df, VM_list = self.preprocess_files(file_list)
         train_start, range_end = self.find_time_range (master_df)       # TBD:  allow user to specify start/stop dates
@@ -85,7 +85,18 @@ class CromeProcessor(object):
         xmodel = self.train_timeslice_model (master_df, VM_list, train_start, train_stop)
         return xmodel
 
+        
+    ''' PRE-MULTI VERSION
+    def predict_CSV (self, CSV_filename):                               
+        df = pd.read_csv(CSV_filename)
+        df = self.transform_dataframe (df)
+        predict_start = df.index[0]
+        predict_stop = predict_start + self.predict_interval
+        df = df[predict_start : predict_stop - self.smidgen]    # DatetimeIndex slices are inclusive
+        return self.model.predict(df)
+    '''
 
+    
     def preprocess_files (self, file_list):
         big_df = pd.DataFrame()
         for filename in file_list:
@@ -99,50 +110,57 @@ class CromeProcessor(object):
             VM_list = VM_list[:self.max_entities]
             big_df = big_df[big_df[self.entity_col].isin(VM_list)]
         return big_df, VM_list
+       
+       
+    def predict_sliding_windows (self, master_df, VM_list):
+        train_start, range_end = self.find_time_range (master_df)       # TBD:  allow user to specify start/stop dates
+        result = pd.DataFrame()
+        while True:
+            # per day:  train ONE model for all VMs.   Then predict EACH VM separately.
+            train_stop = train_start + self.train_interval
+            predict_start = train_stop
+            if predict_start > range_end:
+                break
+            predict_stop = predict_start + self.predict_interval
+            print (">>    train from %s to %s;  predict from %s to %s" % (train_start, train_stop, predict_start, predict_stop))
+            xmodel = self.train_timeslice_model (master_df, VM_list, train_start, train_stop)
+            if xmodel:
+                preds = self.predict_timeslice_model (xmodel, master_df, VM_list, predict_start, predict_stop)
+                result = pd.concat([result, preds])
+                train_start += self.predict_interval
+        return result
+        
+
+    def train_timeslice_model (self, master_df, VM_list, train_start, train_stop):
+        train_data = pd.DataFrame()
+        for vm in VM_list:
+            df = master_df[master_df[self.entity_col]==vm].copy()
+            #print (">>      %s:  add %s rows " % (vm, len(df)))
+            df = self.transform_dataframe (df)
+            df = df[train_start : train_stop - self.smidgen]
+            train_data = pd.concat ([train_data, df])
+        bigmodel = None
+        if len(train_data) >= self.min_train_rows and self.check_valid_target (train_data):
+            print (">>      training %s entities %s total rows" % (len(VM_list), len(train_data)))
+            bigmodel = self.model.fit (train_data[self.features], train_data[self.target_col])
+        return bigmodel
 
         
-    def predict_CSV (self, CSV_filename):
-        df = pd.read_csv(CSV_filename)
-        df = self.transform_dataframe (df)
-        predict_start = df.index[0]
-        predict_stop = predict_start + self.predict_interval
-        df = df[predict_start : predict_stop - self.smidgen]    # DatetimeIndex slices are inclusive
-        return self.model.predict(df)
-
+    def predict_timeslice_model (self, bigmodel, master_df, VM_list, predict_start, predict_stop):
+        result = pd.DataFrame()
+        for vm in VM_list:
+            df = master_df[master_df[self.entity_col]==vm].copy()
+            df = self.transform_dataframe (df)
+            df = df[predict_start : predict_stop - self.smidgen]
+            if len(df) >= self.min_predict_rows:
+                preds = bigmodel.predict (df[self.features])
+                # append to result dataframe
+                df[self.predict_col] = preds
+                df[self.entity_col] = vm
+                result = pd.concat([result, df[[self.entity_col, self.predict_col, self.target_col]]])
+        return result
         
-    def add_derived_features (self, df):
-        for feat in self.features:
-            if feat == 'month':
-                df[feat] = df.index.month
-            elif feat == 'day':
-                df[feat] = df.index.day
-            elif feat == 'weekday':
-                df[feat] = df.index.weekday
-            elif feat == 'hour':
-                df[feat] = df.index.hour
-            elif feat == 'minute':
-                df[feat] = df.index.minute
-            elif feat.startswith ('hist-'):      # history features are of the form "hist-x" or "hist-x-y" where x and y are valid Timedelta strings such as '1H'
-                params = feat.split("-")
-                p1 = params[1]                   # first parameter (x) is the shift i.e. how long ago
-                if len(params) > 2:
-                    p2 = feat.split("-")[2]      # 2nd param (y) if present is the size of the window
-                    df[feat] = df[self.target_col].shift(freq=pd.Timedelta(p1)).rolling(p2).mean()
-                else:
-                    df[feat] = df[self.target_col].shift(freq=pd.Timedelta (p1))
-        return df
-        
-        
-    def dual_resample (self, df):               # resample strings and numerics using separate methods.  This preserves the string columns.
-        df_obj = df[df.columns[df.dtypes==object]]
-        df_obj = df_obj.resample (self.resample_str).first().fillna(method='pad')
-        df = df[df.columns[df.dtypes!=object]]
-        df = df.resample (self.resample_str).mean().fillna(method='pad')
-        for col in df_obj.columns:
-            df[col] = df_obj[col]
-        return df
-        
-    
+            
     def transform_dataframe (self, df):       # could be a pipeline
         # 1. convert to datetime index & sort
         DT = 'DT'
@@ -167,60 +185,44 @@ class CromeProcessor(object):
         df = df[self.features + [self.target_col]]
         return df
 
+        
+    def dual_resample (self, df):               # resample strings and numerics using separate methods.  This preserves the string columns.
+        df_obj = df[df.columns[df.dtypes==object]]
+        df_obj = df_obj.resample (self.resample_str).first().fillna(method='pad')
+        df = df[df.columns[df.dtypes!=object]]
+        df = df.resample (self.resample_str).mean().fillna(method='pad')
+        for col in df_obj.columns:
+            df[col] = df_obj[col]
+        return df
+
+
+    def add_derived_features (self, df):
+        for feat in self.features:
+            if feat == 'month':
+                df[feat] = df.index.month
+            elif feat == 'day':
+                df[feat] = df.index.day
+            elif feat == 'weekday':
+                df[feat] = df.index.weekday
+            elif feat == 'hour':
+                df[feat] = df.index.hour
+            elif feat == 'minute':
+                df[feat] = df.index.minute
+            elif feat.startswith ('hist-'):      # history features are of the form "hist-x" or "hist-x-y" where x and y are valid Timedelta strings such as '1H'
+                params = feat.split("-")
+                p1 = params[1]                   # first parameter (x) is the shift i.e. how long ago
+                if len(params) > 2:
+                    p2 = feat.split("-")[2]      # 2nd param (y) if present is the size of the window
+                    df[feat] = df[self.target_col].shift(freq=pd.Timedelta(p1)).rolling(p2).mean()
+                else:
+                    df[feat] = df[self.target_col].shift(freq=pd.Timedelta (p1))
+        return df
+        
 
     def check_valid_target (self, df):
         vc = df[self.target_col].value_counts()
         return len(vc) >= 2
 
-
-    def train_timeslice_model (self, master_df, VM_list, train_start, train_stop):
-        train_data = pd.DataFrame()
-        for vm in VM_list:
-            df = master_df[master_df[self.entity_col]==vm].copy()
-            #print (">>      %s:  add %s rows " % (vm, len(df)))
-            df = self.transform_dataframe (df)
-            df = df[train_start : train_stop - self.smidgen]
-            train_data = pd.concat ([train_data, df])
-        bigmodel = None
-        if len(train_data) >= self.min_train_rows and self.check_valid_target (train_data):
-            print (">>      training %s entities %s total rows" % (len(VM_list), len(train_data)))
-            bigmodel = self.model.fit (train_data[self.features], train_data[self.target_col])
-        return bigmodel
-            
-
-    def predict_timeslice_model (self, bigmodel, master_df, VM_list, predict_start, predict_stop):
-        result = pd.DataFrame()
-        for vm in VM_list:
-            df = master_df[master_df[self.entity_col]==vm].copy()
-            df = self.transform_dataframe (df)
-            df = df[predict_start : predict_stop - self.smidgen]
-            if len(df) >= self.min_predict_rows:
-                preds = bigmodel.predict (df[self.features])
-                # append to result dataframe
-                df[self.predict_col] = preds
-                df[self.entity_col] = vm
-                result = pd.concat([result, df[[self.entity_col, self.predict_col, self.target_col]]])
-        return result
-        
-            
-    def predict_sliding_windows (self, master_df, VM_list):
-        train_start, range_end = self.find_time_range (master_df)       # TBD:  allow user to specify start/stop dates
-        result = pd.DataFrame()
-        while True:
-            # per day:  train ONE model for all VMs.   Then predict EACH VM separately.
-            train_stop = train_start + self.train_interval
-            predict_start = train_stop
-            if predict_start > range_end:
-                break
-            predict_stop = predict_start + self.predict_interval
-            print (">>    train from %s to %s;  predict from %s to %s" % (train_start, train_stop, predict_start, predict_stop))
-            xmodel = self.train_timeslice_model (master_df, VM_list, train_start, train_stop)
-            if xmodel:
-                preds = self.predict_timeslice_model (xmodel, master_df, VM_list, predict_start, predict_stop)
-                result = pd.concat([result, preds])
-                train_start += self.predict_interval
-        return result
-        
 
     def find_time_range (self, df):
         print ("find time range...")
@@ -435,6 +437,13 @@ def compute_date_step (day_count, chart_inches):
     step = max (int(factor + 0.5), 1)
     return step
 
+    
+def cleanup (df):
+    df = remove_column_spaces(df)
+    df = trim_columns (df)              # remove leading and trailing spaces
+    return df
+   
+    
 
 def remove_column_spaces (df):
     print (">> remove column spaces")
@@ -457,10 +466,6 @@ def trim_columns (df):
 
 
     
-def cleanup (df):
-    df = remove_column_spaces(df)
-    df = trim_columns (df)              # remove leading and trailing spaces
-    return df
     
                          
 
@@ -539,4 +544,3 @@ if __name__ == "__main__":
             if cfg.separate:
                 cp.draw_charts(views)
    
-    
