@@ -96,7 +96,22 @@ class CromeProcessor(object):
         return self.model.predict(df)
     '''
 
-    
+
+    def push_model(self, CSV_filelist, api):
+        import cognita_client
+        print (">> %s:  Loading raw features, training model" % CSV_filelist)
+        model = self.build_model_from_CSV(CSV_filelist)
+        print (">> %s:  Reload features, push to cognita" % CSV_filelist[0])        # if there's more than one file we push only the first
+        df = pd.read_csv(CSV_filelist[0])
+        try:
+            cognita_client.push.push_sklearn_model(model, df[self.features],
+                                                   extra_deps=None, api=api)
+        except Exception as e:
+            print(">> Error: Push error {:}".format(str(e.args[0])).encode("utf-8"))
+            return False
+        return True
+
+
     def preprocess_files (self, file_list):
         big_df = pd.DataFrame()
         for filename in file_list:
@@ -491,9 +506,10 @@ if __name__ == "__main__":
     parser.add_argument('files', nargs='+', help='list of CSV files to process')
     parser.add_argument('-f', '--features', nargs='+', help='list of features to use', default=['month', 'day', 'weekday', 'hour', 'minute'])
     parser.add_argument('-M', '--ML_type', help='specify machine learning model type to use', default='RF')
-    parser.add_argument('-a', '--append_files', help='process list of files as one', action='store_true')
+    parser.add_argument('-j', '--join_files', help='process list of files as one', action='store_true')
     parser.add_argument('-v', '--max_entities', help = 'process at most N entities (VMs)', type=int, default=10)
     parser.add_argument('-i', '--set_param', help='set ML model integer parameter', action='append', nargs=2, default=[])
+    parser.add_argument('-a', '--push_address', help='server address to push the model', default='')
     
     
     cfg = parser.parse_args()
@@ -534,13 +550,16 @@ if __name__ == "__main__":
         file_list = [[x] for x in cfg.files[:cfg.max_files]]
         
     for fnames in file_list:
-        results, VM_list = cp.process_CSVfiles (fnames)
-        if cfg.write_predictions:
-            cp.output_predictions (results, VM_list)
-        if cfg.compound or cfg.separate:
-            views = cp.build_views (results, VM_list)
-            if cfg.compound:
-                cp.draw_compound_charts(views)
-            if cfg.separate:
-                cp.draw_charts(views)
+        if len(cfg.push_address)!=0:
+            cp.push_model(fnames, cfg.push_address)
+        else:
+            results, VM_list = cp.process_CSVfiles (fnames)
+            if cfg.write_predictions:
+                cp.output_predictions (results, VM_list)
+            if cfg.compound or cfg.separate:
+                views = cp.build_views (results, VM_list)
+                if cfg.compound:
+                    cp.draw_compound_charts(views)
+                if cfg.separate:
+                    cp.draw_charts(views)
    

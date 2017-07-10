@@ -84,17 +84,17 @@ Then processing the separate VM files could be accomplished by:
 
 (3) Multi-entity simulations can process the FEAT files directly.  However, some care must be taken if the files are sequential or very large.
 
-If the FEAT files are sequential in time, you do not want to process them separately;  instead you want to process them as if they were concatenated.  That can be accomplished with the 'append_files' (-a) option:
+If the FEAT files are sequential in time, you do not want to process them separately;  instead you want to process them as if they were concatenated.  That can be accomplished with the 'join_files' (-j) option:
 
-    python crome_multi.py -a FEAT*.csv
+    python crome_multi.py -j FEAT*.csv
     
 Depending on memory constraints, you may not be able to process all of the concatenated FEAT files at once.  What you can do instead is process 1 or 2 at a time and collect the results in intermediate JSON files using the write_predictions (-p) option.
 
 For exaple, if the train-predict regimen is 31 days and 1 day, at MINIMUM two month-long files are required.   So to cover a longer time span one could proceed in steps as follows:
 
-    python crome_multi.py -p -o ./predict -a FEAT_Feb2017.csv FEAT_Mar2017.csv
-    python crome_multi.py -p -o ./predict -a FEAT_Mar2017.csv FEAT_Apr2017.csv
-    python crome_multi.py -p -o ./predict -a FEAT_Apr2017.csv FEAT_May2017.csv
+    python crome_multi.py -p -o ./predict -j FEAT_Feb2017.csv FEAT_Mar2017.csv
+    python crome_multi.py -p -o ./predict -j FEAT_Mar2017.csv FEAT_Apr2017.csv
+    python crome_multi.py -p -o ./predict -j FEAT_Apr2017.csv FEAT_May2017.csv
     Etc.
     
 The final output of that will be a set of JSON prediction files, one per entity/VM covering the entire (4-month) time range.
@@ -151,12 +151,12 @@ __EXAMPLES__
 
 This example trains and predicts multi-VM models on dates in February and March with target net_usage, outputs Simple and Compound charts to folder "FebMar", and uses a combination of datetime and historical features.
 
-    python crome_multi.py -a ff/FEAT_VM_1702_1703.csv ff/FEAT_VM_1703_1704.csv -s -c -t net_usage -f day weekday hour minute hist-1D8H hist-1D4H hist-1D2H hist-1D1H hist-1D hist-1D15m hist-1D30m hist-1D45m -o ./FebMar
+    python crome_multi.py -j ff/FEAT_VM_1702_1703.csv ff/FEAT_VM_1703_1704.csv -s -c -t net_usage -f day weekday hour minute hist-1D8H hist-1D4H hist-1D2H hist-1D1H hist-1D hist-1D15m hist-1D30m hist-1D45m -o ./FebMar
 
    
 This example trains and predicts multi-VM models through December and January on 'cpu_usage' (the default), but uses only the FIRST FIFTY entities (VMs) found in the files.  Predictions are not charted but are written as JSON files to folder './json'.  Also, the VM_ID column is added as a feature.
 
-    python crome_multi.py -a ff/FEAT_VM_1612_1701.csv ff/FEAT_VM_1701_1702.csv -p -o ./json -v 50 -f day weekday hour minute hist-1D8H hist-1D4H hist-1D2H hist-1D1H hist-1D hist-1D15m hist-1D30m hist-1D45m VM_ID
+    python crome_multi.py -j ff/FEAT_VM_1612_1701.csv ff/FEAT_VM_1701_1702.csv -p -o ./json -v 50 -f day weekday hour minute hist-1D8H hist-1D4H hist-1D2H hist-1D1H hist-1D hist-1D15m hist-1D30m hist-1D45m VM_ID
 
 
 This example trains and predicts multi-VM models on target 'net_usage' using only the first 10 VMs in the file FEAT_sampled.csv.  The prediction interval is 7 days.  Compound charts are output.  The ML model "Extra Trees With Scaling" is selected and the number of trees is set to 5.
