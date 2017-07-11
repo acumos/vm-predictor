@@ -139,7 +139,7 @@ The -M command line option allows selecting the learning algorithm (model).   Cu
     "ET" -- Extra Trees
     "ET_SC" -- Extra Trees with Scaler
 
-The set_param (-i) switch gives command-line access to one or more if the model's internal parameters.   If "RF" is selected (the default), one can for example set the number of estimators to 18 with:  "-i rf__n_estimators 18".
+The set_param (-i) switch gives command-line access to one or more of the model's internal parameters.   If "RF" is selected (the default), one can for example set the number of estimators to 18 with:  "-i rf__n_estimators 18".
 
 Code for choices "H2O" and "ARIMA" also exists but require a scikit wrapper to function within crome_multi.py (not included).
 
@@ -175,6 +175,12 @@ File | Description
 *add_FEAT_data.py*  | Extracts individual VM data from one or more FEAT data files.  Use '-h' for a list of options.
 *crome_multi.py*    | Main CROME processing script builds multi-VM models and simulates train-predict cycles over an extended time period, outputting the results as charts or tables.   Please consult the help page (-h) for a complete list of options.
 *preds2charts.py*  |  Builds charts from prediction JSON files.   See the help page (-h) for additional options.
+*push_cognita.py* |  Experimental code to push a model to the Cognita platform.
+*StringColumnEncoder.py* | Encode a dataframe's string columns as part of a pipeline.
+*crome.py*  | Older version of crome_multi.py, can only process single-VM models.  Includes H2O and ARIMA support.
+*ML_h2o.py* | Plug-in component for using H2O models.  Not available in crome_multi.
+*ML_arima.py* | Plug-in component for the ARIMA model.  Not available in crome_multi.
+*showFiles.py* | This tool launches a little web server allowing viewing of local charts and other files via a web browser.
 *df_cols.py* | Show names of columns in a dataframe.
 *df_column.py* | Display set of all values in a given column for a CSV file.
 *df_concat.py* | Concatenate dataframe CSVs with same column layout.
@@ -185,13 +191,6 @@ File | Description
 *df_colnospc.py*  |  Remove spaces from column names.
 *df_head.py* |  Display the first few rows of a CSV file.
 *df_tail.py* |  Display the last few rows of a CSV file.
-*df_trim.py* |  
-*push_cognita.py* |  Experimental code to push a model to the Cognita platform.
-*StringColumnEncoder.py* | Encode a dataframe's string columns as part of a pipeline.
-*crome.py*  | Older version of crome_multi.py, can only process single-VM models.  Includes H2O and ARIMA support.
-*ML_h2o.py* | Plug-in component for using H2O models.  Not available in crome_multi.
-*ML_arima.py* | Plug-in component for the ARIMA model.  Not available in crome_multi.
-*showFiles.py* | This tool launches a little web server allowing viewing of local charts and other files via a web browser.
-
+*df_trim.py* |  Remove leading and trailing blanks from string values.
 
 
