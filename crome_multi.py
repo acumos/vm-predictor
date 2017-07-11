@@ -86,17 +86,13 @@ class CromeProcessor(object):
         return xmodel
 
         
-    ''' PRE-MULTI VERSION
-    def predict_CSV (self, CSV_filename):                               
-        df = pd.read_csv(CSV_filename)
-        df = self.transform_dataframe (df)
-        predict_start = df.index[0]
-        predict_stop = predict_start + self.predict_interval
-        df = df[predict_start : predict_stop - self.smidgen]    # DatetimeIndex slices are inclusive
-        return self.model.predict(df)
-    '''
-
-
+    def predict_CSV (self, file_list, resample=None):
+        self.resample_str = resample
+        df, VM_list = self.preprocess_files(file_list)
+        predict_start, predict_stop = self.find_time_range (df)       # TBD:  allow user to specify start/stop dates
+        return self.predict_timeslice_model (self.model, df, VM_list, predict_start, predict_stop)
+    
+    
     def push_model(self, CSV_filelist, api):
         import cognita_client
         print (">> %s:  Loading raw features, training model" % CSV_filelist)
