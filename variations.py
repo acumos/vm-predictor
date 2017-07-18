@@ -16,6 +16,11 @@ from StringColumnEncoder import StringColumnEncoder
 input_file = "big_sample.csv"
 result_file = "results_var.txt"
 
+
+choices = {'feature_type':  ['STD', 'VM'], 'estimators': [5, 10, 20, 100], 'model': ['RF', 'ET', 'SC_RF', 'SC_ET']}
+
+
+
 def run_variation(var_name, cp):
     print ("")
     print ("RUNNING VARIATION:  ", var_name)
@@ -41,9 +46,11 @@ def run_variation(var_name, cp):
     return overall_error
 
 
+    
 ft = ['day', 'weekday', 'hour', 'minute', 'hist-1D8H', 'hist-1D4H', 'hist-1D2H', 'hist-1D1H', 'hist-1D', 'hist-1D15m', 'hist-1D30m', 'hist-1D45m']
 sh = ['day', 'weekday', 'hour', 'minute', 'hist-1H', 'hist-4H', 'hist-1D', 'hist-15m']
 
+'''
 #run_variation ("TESTING #1", CromeProcessor('cpu_usage', feats=ft, predict_size_days=14, model=Pipeline([('enc', StringColumnEncoder()), ('sc', StandardScaler()), ('rf', RandomForestRegressor(n_estimators=20))])))          # TESTING ONLY!!!
 run_variation ("cpu_usage RF_20 std_features", CromeProcessor('cpu_usage', feats=ft, model=RandomForestRegressor(n_estimators=20)))
 
@@ -63,6 +70,11 @@ run_variation ("cpu_usage SC_ET_10 vm_features", CromeProcessor('cpu_usage', fea
 
 #run_variation ("cpu_usage RF_100 std_features", CromeProcessor('cpu_usage', feats=ft, model=Pipeline([('enc', StringColumnEncoder()), ('rf', RandomForestRegressor(n_estimators=100))])))
 run_variation ("cpu_usage RF_100 std_features", CromeProcessor('cpu_usage', feats=ft, model=RandomForestRegressor(n_estimators=100)))
+'''
+
+run_variation ("cpu_usage SC_RF_20 vm_features", CromeProcessor('cpu_usage', feats=ft+['VM_ID'], model=Pipeline([('enc', StringColumnEncoder()), ('sc', StandardScaler()), ('rf', RandomForestRegressor(n_estimators=20))])))
+
+run_variation ("cpu_usage SC_ET_5 vm_features", CromeProcessor('cpu_usage', feats=ft+['VM_ID'], model=Pipeline([('enc', StringColumnEncoder()), ('sc', StandardScaler()), ('et', ExtraTreesRegressor(n_estimators=5))])))
 
 
 

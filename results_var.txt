@@ -1,0 +1,11 @@
+TESTING #1, 0.0523165407989
+cpu_usage SC_RF_20 std_features, 0.0803591705744
+cpu_usage RF_20 std_features, 0.0799548003908
+cpu_usage ET_20 std_features, 0.080672194291
+cpu_usage RF_10 std_features, 0.0810725281143
+cpu_usage RF_20 vm_features, 0.072894247248
+cpu_usage RF_20 sh_features, 0.0381289839879
+cpu_usage SC_ET_10 vm_features, 0.0750969655327
+cpu_usage RF_100 std_features, 0.0790709803953
+cpu_usage SC_RF_20 vm_features, 0.0732238538282
+cpu_usage SC_ET_5 vm_features, 0.0762494685619
