@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import cherrypy
 import os
 import subprocess
@@ -20,16 +22,16 @@ def thumbCleaner(dir):
     while Running:
         now = time.time()
         if now - lastcheck >= frequency:
-            print "thumbCleaner starting."
+            print ("thumbCleaner starting.")
             thumbs = dirList.cdateSorted(dir + "/*.jpg")
             for ctime, name, sz in thumbs:
                 if now - ctime > maxlife:      
-                    print "thumbCleaner: expired -- ", name
+                    print ("thumbCleaner: expired -- ", name)
                     try:                    # because there may be multiple thumbCleaners
                         os.remove(name)
                     except:
                         pass
-            print "thumbCleaner sleeping."
+            print ("thumbCleaner sleeping.")
             lastcheck = time.time()
         time.sleep(2)
 
@@ -40,13 +42,13 @@ def randomString():
 
 def processCommand(cmdstring, dir='.', verbose=False):
     if verbose:
-        print "in dir='%s' Running: %s" % (dir, cmdstring)
+        print ("in dir='%s' Running: %s" % (dir, cmdstring))
     cmds = shlex.split(cmdstring)
     proc = subprocess.Popen(cmds, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False, cwd=dir)
     (out, err) = proc.communicate()
     if err:
-        print "Listener:  Error", err, "running command:"
-        print "          ", cmd
+        print ("Listener:  Error", err, "running command:")
+        print ("          ", cmd)
         out = "ERROR: " + str(err)
     return err, out
 
@@ -80,7 +82,7 @@ class HelloWorld(object):
 
    
     def fetch(self, file):
-        f = open(file, "r")
+        f = open(file, "rb")
         return f.read()
     fetch.exposed = True
 
@@ -213,7 +215,9 @@ class HelloWorld(object):
 DocumentIcon = 'http://www.edutech.nodak.edu/chromebooks/files/2014/09/google_docs.png'
 #FolderIcon = 'http://png-3.findicons.com/files/icons/727/leopard/128/folder.png'
 FolderIcon = 'http://fc06.deviantart.net/fs70/f/2012/292/a/8/steampunk_victorian_folder_icon_by_pendragon1966-d5i99js.png'
-CodeIcon = 'http://www.pubzi.com/f/source-code-icon.svg'
+#CodeIcon = 'http://www.pubzi.com/f/source-code-icon.svg'
+#CodeIcon = 'http://findicons.com/files/icons/1714/dropline_neu/128/text_x_source.png'
+CodeIcon = 'https://www.softlanding.com/updates/concrete5.6.3.4/concrete/images/icons/filetypes/zip.png'
 CSVIcon = 'http://www.colabrativ.com/images/OxygenTeam_speadsheet+CSV_128x128.png'
 TableIcon = 'http://www.rocketroute.com/wp-content/uploads/mimetypes_office_spreadsheet.png'
 
