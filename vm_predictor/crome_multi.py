@@ -1,5 +1,4 @@
 from __future__ import print_function
-print ("startup")
 
 import pandas as pd
 import numpy as np
@@ -96,13 +95,15 @@ class CromeProcessor(object):
         return self.model.predict(df)
     '''
 
-
-    def push_model(self, CSV_filelist, api):
+    def push_model(self, CSV_filename, api, is_raw_data=False):
+        #from vm_predictor import push_cognita
         import cognita_client
-        print (">> %s:  Loading raw features, training model" % CSV_filelist)
-        model = self.build_model_from_CSV(CSV_filelist)
-        print (">> %s:  Reload features, push to cognita" % CSV_filelist[0])        # if there's more than one file we push only the first
-        df = pd.read_csv(CSV_filelist[0])
+        print (">> %s:  Loading raw features, training model" % CSV_filename)
+        model = self.build_model_from_CSV(CSV_filename, is_raw_data=is_raw_data)
+        print (">> %s:  Reload features, push to cognita" % CSV_filename)
+        df = pd.read_csv(CSV_filename)
+
+        #info = push_cognita.push_to_cognita(model, df, self.features, api=api)
         try:
             cognita_client.push.push_sklearn_model(model, df[self.features],
                                                    extra_deps=None, api=api)
@@ -111,6 +112,23 @@ class CromeProcessor(object):
             return False
         return True
 
+
+    def dump_model(self, CSV_filename, model_file):
+        #from vm_predictor import push_cognita
+        from cognita_client.dump import dump_sklearn_model
+
+        print (">> %s:  Loading raw features, training model" % CSV_filename)
+        model = self.build_model_from_CSV(CSV_filename)
+        print (">> %s:  Reload features, push to cognita" % CSV_filename)
+        df = pd.read_csv(CSV_filename)
+
+        #info = push_cognita.push_to_cognita(model, df, self.features, api=api)
+        try:
+            dump_sklearn_model(model, df[self.features], model_file)
+        except Exception as e:
+            print(">> Error: Push error {:}".format(str(e.args[0])).encode("utf-8"))
+            return False
+        return True
 
     def preprocess_files (self, file_list):
         big_df = pd.DataFrame()
@@ -479,16 +497,7 @@ def trim_columns (df):
             pass
     return df
 
-
-    
-    
-                         
-
-    
-        
-if __name__ == "__main__":
-
-    print ("main")
+def main():
     import argparse
     parser = argparse.ArgumentParser(description = "CROME training and testing", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-t', '--target', help='target prediction column', default='cpu_usage')
@@ -504,14 +513,15 @@ if __name__ == "__main__":
     parser.add_argument('-P', '--predict_days', help = 'number of days to predict per iteration', type=int, default=1)
     parser.add_argument('-S', '--sample_size', help='desired duration of train/predict units.  See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases', default='15min')
     parser.add_argument('files', nargs='+', help='list of CSV files to process')
-    parser.add_argument('-f', '--features', nargs='+', help='list of features to use', default=['month', 'day', 'weekday', 'hour', 'minute'])
-    parser.add_argument('-M', '--ML_type', help='specify machine learning model type to use', default='RF')
     parser.add_argument('-j', '--join_files', help='process list of files as one', action='store_true')
     parser.add_argument('-v', '--max_entities', help = 'process at most N entities (VMs)', type=int, default=10)
     parser.add_argument('-i', '--set_param', help='set ML model integer parameter', action='append', nargs=2, default=[])
+    parser.add_argument('-f', '--features', nargs='+', help='list of features to use', default=['month', 'day', 'weekday', 'hour', 'minute'])
+    parser.add_argument('-M', '--ML_type', help='specify machine learning model type to use', default='RF')
+    parser.add_argument('-R', '--is_raw_data', help='for the push and dump options, perform feature processing', default=False, action='store_true')
     parser.add_argument('-a', '--push_address', help='server address to push the model', default='')
-    
-    
+    parser.add_argument('-d', '--dump_pickle', help='dump model to a pickle directory for local running', default='')
+
     cfg = parser.parse_args()
 
     if cfg.randomize:
@@ -538,11 +548,10 @@ if __name__ == "__main__":
     if len(cfg.set_param) > 0:
         param_dict = {k:int(v) for [k,v] in cfg.set_param}
         ML_model.set_params (**param_dict)
-        print ("set model params:", param_dict)
-        
-    print ("constructor")
-    cp = CromeProcessor (cfg.target, png_base_path=cfg.output_dir, date_col=cfg.date_col, train_size_days=cfg.train_days, predict_size_days=cfg.predict_days, 
-                         resample_str=cfg.sample_size, min_train=cfg.min_train, feats=cfg.features, max_entities=cfg.max_entities, model=ML_model)
+
+    cp = CromeProcessor (cfg.target, png_base_path=cfg.output_dir, date_col=cfg.date_col, train_size_days=cfg.train_days,
+                         predict_size_days=cfg.predict_days, resample_str=cfg.sample_size, min_train=cfg.min_train,
+                         feats=cfg.features, max_entities=cfg.max_entities, model=ML_model)
                          
     if cfg.append_files:
         file_list = [cfg.files[:cfg.max_files]]
@@ -550,6 +559,12 @@ if __name__ == "__main__":
         file_list = [[x] for x in cfg.files[:cfg.max_files]]
         
     for fnames in file_list:
+        if len(cfg.push_address)!=0:
+            cp.push_model(fname, cfg.push_address, cfg.is_raw_data)
+        elif len(cfg.dump_pickle)!=0:
+            cp.dump_model(fname, cfg.dump_pickle, cfg.is_raw_data)
+        elif len(cfg.png_dir)!=0 and (exists(cp.compose_chart_name(basename(fname))) or exists(cp.compose_chart_name(basename(fname), 'original'))):
+            print (">> %s:  chart already exists, skipped" % fname)
         if len(cfg.push_address)!=0:
             cp.push_model(fnames, cfg.push_address)
         else:
@@ -562,4 +577,12 @@ if __name__ == "__main__":
                     cp.draw_compound_charts(views)
                 if cfg.separate:
                     cp.draw_charts(views)
-   
+                if len(cfg.push_address) != 0:
+                    cp.push_model(fnames, cfg.push_address, cfg.is_raw_data)
+                elif len(cfg.dump_pickle) != 0:
+                    cp.dump_model(fnames, cfg.dump_pickle, cfg.is_raw_data)
+
+
+if __name__ == "__main__":
+    main()
+

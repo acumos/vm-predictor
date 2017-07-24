@@ -22,11 +22,26 @@ This repo currently includes example training and testing data.  You can create 
 and push it to a locally running Cognita mock server with the following example.
 
 ```
-# training + push to a running server
-./bin/run_local.sh -t cpu_usage -a "http://localhost:8887/v1/models" data/train.csv
+# training + dump for a single model in a directory (raw data)
+./bin/run_local.sh data/multi/raw-feature.csv.gz -t cpu_usage -o data/multi_feature -f day weekday hour minute hist-1D8H hist-1D4H hist-1D2H hist-1D1H hist-1D hist-1D15m hist-1D30m hist-1D45m VM_ID -c -P 2 -d model -R data/multi/raw-feature.csv.gz
 
-# training + dump for a single model in a directory
-./bin/run_local.sh -t cpu_usage -d single_model -f day weekday hour minute hist-1D VM_ID -d model data/train.csv
+# training + push to a running server (preprocessed data)
+./bin/run_local.sh -t cpu_usage -a "http://localhost:8887/v1/models" data/single/train.csv
+
+# training + dump for a single model in a directory (preprocessed data)
+./bin/run_local.sh -t cpu_usage -d single_model -f day weekday hour minute hist-1D VM_ID -d model data/single/train.csv
+```
+
+### Grid search
+
+One feature of the multi-VM code is to allow a grid search of a few different
+parameters.  Generally, this requires **raw** features as 
+input so that the various can be utilized in the feature aggregation process.
+Note: There are still more paramters that can be tuned, but this script
+explores those with the biggest potential gains in performance. *(added 7/23)*
+```
+# train on raw features, produce performance plots across variants
+TBD
 ```
 
 

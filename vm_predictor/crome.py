@@ -492,7 +492,7 @@ def main():
     parser.add_argument('-S', '--sample_size', help='desired duration of train/predict units.  See http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases', default='15min')
     parser.add_argument('files', nargs='+', help='list of CSV files to process')
     parser.add_argument('-f', '--features', nargs='+', help='list of features to use', default=['day', 'weekday', 'hour', 'minute'])
-    parser.add_argument('-M', '--ML_platform', help='specify machine learning platform to use', default='SK')
+    parser.add_argument('-M', '--ML_platform', help='specify machine learning platform to use', default='RF')
     parser.add_argument('-R', '--is_raw_data', help='for the push and dump options, perform feature processing', default=False, action='store_true')
     parser.add_argument('-a', '--push_address', help='server address to push the model', default='')
     parser.add_argument('-d', '--dump_pickle', help='dump model to a pickle directory for local running', default='')
@@ -509,7 +509,7 @@ def main():
         ML_func = ML_h2o.H2O_train_and_predict
     elif cfg.ML_platform == "Scaler":
         ML_func = Scaler_train_and_predict
-    elif cfg.ML_platform == "SK":
+    elif cfg.ML_platform == "RF":
         ML_model = SK_RFmodel()
     elif cfg.ML_platform == "ET":
         ML_func = ET_train_and_predict
@@ -533,6 +533,10 @@ def main():
         else:
             results = cp.process_CSVfile (fname)
             if cfg.compound:
+                if len(cfg.push_address) != 0:
+                    cp.push_model(fname, cfg.push_address, cfg.is_raw_data)
+                elif len(cfg.dump_pickle) != 0:
+                    cp.dump_model(fname, cfg.dump_pickle, cfg.is_raw_data)
                 cp.draw_compound_chart(results, basename(fname))
             if cfg.separate:
                 cp.draw_charts(results, basename(fname))
