@@ -148,7 +148,7 @@ class CromeProcessor(object):
             df = master_df[master_df[self.entity_col]==vm].copy()
             #print (">>      %s:  add %s rows " % (vm, len(df)))
             df = self.transform_dataframe (df)
-            df = df[train_start : train_stop - self.smidgen]
+            df = df[train_start : train_stop - self.smidgen]       # DatetimeIndex slices are inclusive
             train_data = pd.concat ([train_data, df])
         bigmodel = None
         if len(train_data) >= self.min_train_rows and self.check_valid_target (train_data):
@@ -162,7 +162,7 @@ class CromeProcessor(object):
         for vm in VM_list:
             df = master_df[master_df[self.entity_col]==vm].copy()
             df = self.transform_dataframe (df)
-            df = df[predict_start : predict_stop - self.smidgen]
+            df = df[predict_start : predict_stop - self.smidgen]       # DatetimeIndex slices are inclusive
             if len(df) >= self.min_predict_rows:
                 preds = bigmodel.predict (df[self.features])
                 # append to result dataframe
@@ -177,7 +177,7 @@ class CromeProcessor(object):
         DT = 'DT'
         df[DT] = pd.to_datetime(df[self.date_col])
         df = df.sort_values(DT)
-        df.index = pd.DatetimeIndex(df['DT'])    
+        df.index = pd.DatetimeIndex(df[DT])
         df.drop (self.date_col, axis=1, inplace=True)
         df.drop (DT, axis=1, inplace=True)
         
@@ -503,7 +503,7 @@ if __name__ == "__main__":
     parser.add_argument('-f', '--features', nargs='+', help='list of features to use', default=['month', 'day', 'weekday', 'hour', 'minute'])
     parser.add_argument('-M', '--ML_type', help='specify machine learning model type to use', default='RF')
     parser.add_argument('-j', '--join_files', help='process list of files as one', action='store_true')
-    parser.add_argument('-v', '--max_entities', help = 'process at most N entities (VMs)', type=int, default=10)
+    parser.add_argument('-v', '--max_entities', help = 'process at most N entities (VMs)', type=int, default=None)
     parser.add_argument('-i', '--set_param', help='set ML model integer parameter', action='append', nargs=2, default=[])
     parser.add_argument('-a', '--push_address', help='server address to push the model', default='')
     
@@ -540,7 +540,7 @@ if __name__ == "__main__":
     cp = CromeProcessor (cfg.target, png_base_path=cfg.output_dir, date_col=cfg.date_col, train_size_days=cfg.train_days, predict_size_days=cfg.predict_days, 
                          resample_str=cfg.sample_size, min_train=cfg.min_train, feats=cfg.features, max_entities=cfg.max_entities, model=ML_model)
                          
-    if cfg.append_files:
+    if cfg.join_files:
         file_list = [cfg.files[:cfg.max_files]]
     else:
         file_list = [[x] for x in cfg.files[:cfg.max_files]]
