@@ -77,20 +77,13 @@ class CromeProcessor(object):
         return df_result, VM_list
 
         
-    def build_model_from_CSV (self, file_list):                         # Note:  all files in the list will be appended
-        master_df, VM_list = self.preprocess_files(file_list)
+    def build_model_from_CSV (self, file_name, data_out=None):                         # Note:  all files in the list will be appended
+        master_df, VM_list = self.preprocess_files([file_name])
         train_start, range_end = self.find_time_range (master_df)       # TBD:  allow user to specify start/stop dates
         train_stop = train_start + self.train_interval
-        xmodel = self.train_timeslice_model (master_df, VM_list, train_start, train_stop)
+        xmodel = self.train_timeslice_model (master_df, VM_list, train_start, train_stop, featfile=data_out)
         return xmodel
 
-    def predict_CSV (self, file_list, resample=None):
-        self.resample_str = resample
-        df, VM_list = self.preprocess_files(file_list)
-        predict_start, predict_stop = self.find_time_range (df)       # TBD:  allow user to specify start/stop dates
-        return self.predict_timeslice_model (self.model, df, VM_list, predict_start, predict_stop)
-    
-    
     def push_model(self, CSV_filename, api, is_raw_data=False):
         #from vm_predictor import push_cognita
         import cognita_client
@@ -160,7 +153,7 @@ class CromeProcessor(object):
         return result
         
 
-    def train_timeslice_model (self, master_df, VM_list, train_start, train_stop):
+    def train_timeslice_model (self, master_df, VM_list, train_start, train_stop, featfile=None):
         train_data = pd.DataFrame()
         for vm in VM_list:
             df = master_df[master_df[self.entity_col]==vm].copy()
@@ -169,24 +162,32 @@ class CromeProcessor(object):
             df = df[train_start : train_stop - self.smidgen]       # DatetimeIndex slices are inclusive
             train_data = pd.concat ([train_data, df])
         bigmodel = None
+        if featfile:
+            train_data.to_csv(featfile, index=False)
         if len(train_data) >= self.min_train_rows and self.check_valid_target (train_data):
             print (">>      training %s entities %s total rows" % (len(VM_list), len(train_data)))
             bigmodel = self.model.fit (train_data[self.features], train_data[self.target_col])
         return bigmodel
 
         
-    def predict_timeslice_model (self, bigmodel, master_df, VM_list, predict_start, predict_stop):
+    def predict_timeslice_model (self, bigmodel, master_df, VM_list, predict_start, predict_stop, featfile=None):
         result = pd.DataFrame()
+        if featfile:
+            feats_out = pd.DataFrame()
         for vm in VM_list:
             df = master_df[master_df[self.entity_col]==vm].copy()
             df = self.transform_dataframe (df)
             df = df[predict_start : predict_stop - self.smidgen]       # DatetimeIndex slices are inclusive
+            if featfile:
+                feats_out = pd.concat([feats_out, df])
             if len(df) >= self.min_predict_rows:
                 preds = bigmodel.predict (df[self.features])
                 # append to result dataframe
                 df[self.predict_col] = preds
                 df[self.entity_col] = vm
                 result = pd.concat([result, df[[self.entity_col, self.predict_col, self.target_col]]])
+        if featfile:
+            feats_out.to_csv(featfile, index=False)
         return result
         
             

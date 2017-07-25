@@ -70,18 +70,18 @@ Given a set of FEAT (or other) CSV files containing time-series data, the proces
 
 (1) First one needs to decide whether to build multi-entity (VM) models or single-entity models.
 
-(2) Single-entity simulations process files that contain time-series data for a single entity (VM) only.   Since the FEAT csv files typically contain multiple entities, they must first be broken up into per-entity files using the tool *add_FEAT_data.py*.
+(2a) Single-entity simulations process files that contain time-series data for a single entity (VM) only.   Since the FEAT csv files typically contain multiple entities, they must first be broken up into per-entity files using the tool *add_FEAT_data.py*.
 
 It may be as simple as this:
 
     python add_FEAT_data.py FEAT*.csv -o ./VM_data
 
-Then processing the separate VM files could be accomplished by:
+Then processing the separate VM files, with compound charts, could be accomplished by:
 
-    python crome_multi.py  ./VM_data/*.csv
+    python crome_multi.py  ./VM_data/*.csv -c
 
 
-(3) Multi-entity simulations can process the FEAT files directly.  However, some care must be taken if the files are sequential or very large.
+(2b) Multi-entity simulations can process the FEAT files directly.  However, some care must be taken if the files are sequential or very large.
 
 If the FEAT files are sequential in time, you do not want to process them separately;  instead you want to process them as if they were concatenated.  That can be accomplished with the 'join_files' (-j) option:
 
@@ -100,7 +100,6 @@ The final output of that will be a set of JSON prediction files, one per entity/
 To create charts from those JSON files another tool is used:  *preds2charts.py*.   For example:
 
     python preds2charts.py ./predict/*.json
-
 
 
 # Installation
@@ -218,41 +217,30 @@ A simple unit test is planned but not currently available.
 
 ## MACHINE LEARNING BASICS
 
-Machine learning models are trained on "features" in order to predict the "target".  
+Machine learning models are trained on "features" in order to predict the "target".
 
-In CROME FEAT files the target is typically a column containing one of the usage statistics:  cpu_usage, mem_usage, or net_usage.   The target is specified on the command line with the '-t' option, e.g. "-t net_usage".   Note that target defaults to 'cpu_usage'.
-
+In CROME FEAT files the target is typically a column containing one of the usage statistics:  cpu_usage, mem_usage, or net_usage.   The target is specified on the command line with the `-t` option, e.g. `-t net_usage`.   Note that target defaults to `cpu_usage`.
 The features used are, by default, only time-based features such as 'month', 'day', 'weekday', 'hour', and 'minute'.   These do not require any other information in the CSV file other than the date.  Good performance can be achieved using just those features.
-
-For enhanced ML performance however additional features may be required.   
-
-When the default is not used ALL features must be listed on the command line with the "-f" switch.  
-
+For enhanced ML performance however additional features may be required.
+When the default is not used ALL features must be listed on the command line with the "-f" switch.
 In some cases the data files themselves contain features of value.  Just add the name of the desired column to the feature list, for example "VM_ID".
-
 Additionally crome_multi.py provides specialized syntax to give access to prior values of the target, as features.  If a feature begins with "hist-" it indicates such a 'historical' feature.  The time displacement string immediately follows, for example 'hist-1D' is the target value one day previous.  'hist-1H' is one hour previous;  'hist-1D1H' is one day plus one hour previous.  And so on.
-
 Those historical values are point values (according to the base sample size) so to sample over a longer period add a second parameter after a dash.  'hist-2D-1H' specifies the previous target value two days ago averaged over one hour.
-
-
 See below for more examples.
 
 
 ## MODELS
 
-Access to several ML model types are built in to crome_multi.py.   
-
-The -M command line option allows selecting the learning algorithm (model).   Current choices include:
+Access to several ML model types are built in to crome_multi.py.   The `-M` command line option allows selecting the learning algorithm (model).   Current choices include:
 
     "RF" -- Random Forest (default)
     "RF_SC" -- Random Forest with Scaler
     "ET" -- Extra Trees
     "ET_SC" -- Extra Trees with Scaler
 
-The set_param (-i) switch gives command-line access to one or more of the model's internal parameters.   If "RF" is selected (the default), one can for example set the number of estimators to 18 with:  "-i rf__n_estimators 18".
+The set_param (-i) switch gives command-line access to one or more of the model's internal parameters.   If "RF" is selected (the default), one can for example set the number of estimators to 18 with:  `-i rf__n_estimators 18`.
 
 Code for choices "H2O" and "ARIMA" also exists but require a scikit wrapper to function within crome_multi.py (not included).
-
 Also, the base class can easily accomodate your own *custom* models especially via the scikit interface.
 
    
@@ -272,6 +260,11 @@ This example trains and predicts multi-VM models on target 'net_usage' using onl
 
     python crome_multi.py FEAT_sampled.csv -c -t net_usage -v 10 -o sk_test_et_sc -i et__n_estimators 5 -P 7 -f day weekday hour minute hist-1D8H hist-1D4H hist-1D2H hist-1D1H hist-1D hist-1D15m hist-1D30m hist-1D45m VM_ID -M ET_SC
 
+    
+
+__VARIATIONS__
+
+As you may have guessed by now there are a lot of choices in ML models and their parameters.   One way to zero in on "best practice" is to do a Grid Search.    The basic idea is that all the various options and their values form a grid of possibilities, and to find the ideal choice we try all the combinations.  The script *variations.py* demonstrates one way of doing that.  Essentially each "run_variation" line instantiates a different scikit model with assorted parameters.  Though not an exhaustive search (each run is lengthy), it is meant as example code which, when you get the hang of it, will serve as a gateway to your own experiments.
 
 
     
@@ -282,22 +275,25 @@ This example trains and predicts multi-VM models on target 'net_usage' using onl
 File | Description
 -----|------------
 *add_FEAT_data.py*  | Extracts individual VM data from one or more FEAT data files.  Use '-h' for a list of options.
-*crome_multi.py*    | Main CROME processing script builds multi-VM models and simulates train-predict cycles over an extended time period, outputting the results as charts or tables.   Please consult the help page (-h) for a complete list of options.
-*preds2charts.py*  |  Builds charts from prediction JSON files.   See the help page (-h) for additional options.
-*push_cognita.py* |  Experimental code to push a model to the Cognita platform.
-*StringColumnEncoder.py* | Encode a dataframe's string columns as part of a pipeline.
 *crome.py*  | Older version of crome_multi.py, can only process single-VM models.  Includes H2O and ARIMA support.
-*ML_h2o.py* | Plug-in component for using H2O models.  Not available in crome_multi.
-*ML_arima.py* | Plug-in component for the ARIMA model.  Not available in crome_multi.
-*showFiles.py* | This tool launches a little web server allowing viewing of local charts and other files via a web browser.
-*df_cols.py* | Show names of columns in a dataframe.
+*crome_multi.py*    | Main CROME processing script builds multi-VM models and simulates train-predict cycles over an extended time period, outputting the results as charts or tables.   Please consult the help page (-h) for a complete list of options.
+*df_col2float.py*   |  Convert a column to floating point.
+*df_colnospc.py*  |  Remove spaces from column names.
 *df_column.py* | Display set of all values in a given column for a CSV file.
+*df_cols.py* | Show names of columns in a dataframe.
 *df_concat.py* | Concatenate dataframe CSVs with same column layout.
+*df_head.py* |  Display the first few rows of a CSV file.
 *df_sample.py* | Subsample a CSV data file.  Set 'preserve_ones' to keep EULR=1 rows.
 *df_shape.py* | Display shape of CSV file(s) (rows, columns).
 *df_split.py* | Randomly split a dataframe into 2 separate files by a given percentage (default=0.5).
-*df_col2float.py*   |  Convert a column to floating point.
-*df_colnospc.py*  |  Remove spaces from column names.
-*df_head.py* |  Display the first few rows of a CSV file.
 *df_tail.py* |  Display the last few rows of a CSV file.
 *df_trim.py* |  Remove leading and trailing blanks from string values.
+*ML_arima.py* | Plug-in component for the ARIMA model.  Not available in crome_multi.
+*ML_h2o.py* | Plug-in component for using H2O models.  Not available in crome_multi.
+*preds2charts.py*  |  Builds charts from prediction JSON files.   See the help page (-h) for additional options.
+*push_cognita.py* |  Experimental code to push a model to the Cognita platform.
+*push_multi_cognita.py* |  The multi-VM equivalent of push_cognita.py. 
+*showFiles.py* | This tool launches a little web server allowing viewing of local charts and other files via a web browser.
+*StringColumnEncoder.py* | Encode a dataframe's string columns as part of a pipeline.
+*train_test.py* | Example code demonstrating training and testing from CSV files.
+*variations.py* | Utility program which can run a "grid search" of model variations to find the best parameters.  For most authoratative results should be used with a FEAT file containing a random sampling of VMs.  Meant as a starting point for further experiments.  Note:  long run time.
