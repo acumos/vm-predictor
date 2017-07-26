@@ -42,7 +42,7 @@ if __name__ == "__main__":
     
     entity_col = "VM_ID"
     
-    parser = argparse.ArgumentParser(description = "CROME training and testing", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(description = "FEAT data sampler", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     
     

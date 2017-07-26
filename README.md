@@ -293,6 +293,7 @@ File | Description
 *preds2charts.py*  |  Builds charts from prediction JSON files.   See the help page (-h) for additional options.
 *push_cognita.py* |  Experimental code to push a model to the Cognita platform.
 *push_multi_cognita.py* |  The multi-VM equivalent of push_cognita.py. 
+*sample_FEAT.py* |  A utility script which allows taking a random sample of the VMs in FEAT*.csv data.
 *showFiles.py* | This tool launches a little web server allowing viewing of local charts and other files via a web browser.
 *StringColumnEncoder.py* | Encode a dataframe's string columns as part of a pipeline.
 *train_test.py* | Example code demonstrating training and testing from CSV files.
