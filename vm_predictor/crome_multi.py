@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import datetime
 from matplotlib.dates import YearLocator, MonthLocator, DayLocator, HourLocator, DateFormatter
 
-from StringColumnEncoder import StringColumnEncoder
+from vm_predictor.StringColumnEncoder import StringColumnEncoder
 
     
     
@@ -77,8 +77,16 @@ class CromeProcessor(object):
         return df_result, VM_list
 
         
-    def build_model_from_CSV (self, file_name, data_out=None):                         # Note:  all files in the list will be appended
-        master_df, VM_list = self.preprocess_files([file_name])
+    def build_model_from_CSV (self, file_list, data_out=None, is_raw_data=True):
+        # Note:  all files in the list will be appended
+        if is_raw_data:
+            master_df, VM_list = self.preprocess_files(file_list)
+        else:
+            master_df = pd.DataFrame()
+            for filename in file_list:
+                print ("build_model_from_CSV reading: ", filename)
+                master_df = pd.concat([master_df, pd.read_csv(filename)])
+            VM_list = sorted(list(set(master_df[self.entity_col])))
         train_start, range_end = self.find_time_range (master_df)       # TBD:  allow user to specify start/stop dates
         train_stop = train_start + self.train_interval
         xmodel = self.train_timeslice_model (master_df, VM_list, train_start, train_stop, featfile=data_out)
@@ -102,12 +110,12 @@ class CromeProcessor(object):
         return True
 
 
-    def dump_model(self, CSV_filename, model_file):
+    def dump_model(self, CSV_filename, model_file, is_raw_data=False):
         #from vm_predictor import push_cognita
         from cognita_client.dump import dump_sklearn_model
 
         print (">> %s:  Loading raw features, training model" % CSV_filename)
-        model = self.build_model_from_CSV(CSV_filename)
+        model = self.build_model_from_CSV(CSV_filename, is_raw_data=is_raw_data)
         print (">> %s:  Reload features, push to cognita" % CSV_filename)
         df = pd.read_csv(CSV_filename)
 
@@ -122,7 +130,7 @@ class CromeProcessor(object):
     def preprocess_files (self, file_list):
         big_df = pd.DataFrame()
         for filename in file_list:
-            print ("reading: ", filename)
+            print ("preprocess_files reading: ", filename)
             big_df = pd.concat([big_df, pd.read_csv(filename)])
         print (">> %s total rows" % len(big_df))
         big_df = cleanup(big_df)
@@ -556,9 +564,9 @@ def main():
         
     for fnames in file_list:
         if len(cfg.push_address)!=0:
-            cp.push_model(fname, cfg.push_address, cfg.is_raw_data)
+            cp.push_model(fnames, cfg.push_address, cfg.is_raw_data)
         elif len(cfg.dump_pickle)!=0:
-            cp.dump_model(fname, cfg.dump_pickle, cfg.is_raw_data)
+            cp.dump_model(fnames, cfg.dump_pickle, cfg.is_raw_data)
         elif len(cfg.png_dir)!=0 and (exists(cp.compose_chart_name(basename(fname))) or exists(cp.compose_chart_name(basename(fname), 'original'))):
             print (">> %s:  chart already exists, skipped" % fname)
         if len(cfg.push_address)!=0:

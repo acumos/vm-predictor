@@ -1,2 +1,5 @@
-cognita-python-client
+cognita-client
+pandas
 sklearn
+scipy
+matplotlib

@@ -7,7 +7,7 @@ from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 
-from StringColumnEncoder import StringColumnEncoder
+from vm_predictor.StringColumnEncoder import StringColumnEncoder
 
 import numpy as np
 
