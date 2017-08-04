@@ -1,0 +1,5 @@
+cognita-client
+pandas
+sklearn
+scipy
+matplotlib
