@@ -189,8 +189,6 @@ class CromeProcessor(object):
         return True
 
     def dump_model(self, CSV_filename, model_dir, is_raw_data=False):
-        #from vm_predictor import push_cognita
-        import cognita_client
         from cognita_client.dump import dump_sklearn_model
         from os import path, makedirs
 

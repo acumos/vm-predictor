@@ -17,7 +17,7 @@ This set of tools allows the user to simulate (and, potentially, implement) a tr
 
 Data files can be large, and CROME's so-called 'FEAT' files are no exception.   (Note:   Another set of tools captures the raw data to create the FEAT files.  The workings of those tools are beyond the scope of this document.)
 
-The FEAT data may be delimited by month.   For example, "FEAT_VM_1702_1703.csv" contains data from February 2017 through the beginning of March 2017.  The data is "raw" in that it needs a substantial amount of preprocessing.   That's obvious just by looking at the original column names:
+The FEAT data may be delimited by month.   For example, `data/multi/raw-feature.csv.gz` contains data from February 2017 through the beginning of March 2017.  The data is "raw" in that it needs a substantial amount of preprocessing.   That's obvious just by looking at the original column names:
 
     [' cpu        _ usage       ', ' cpu        _ usagemhz    ', ' mem        _ active      ', ' mem        _ consumed    ', ' mem        _ granted     ', ' mem        _ usage       ', ' net        _ received    ', ' net        _ transmitted ', ' net        _ usage       ', 'DATETIMEUTC', 'DATEUTC', 'GLOBAL_CUSTOMER_ID', 'SUBSCRIBER_NAME', 'Unnamed: 0', 'VM_ID']
 
@@ -123,7 +123,7 @@ and push it to a locally running Cognita mock server with the following example.
 
 ```
 # training + dump for a single model in a directory (raw data)
-./bin/run_local.sh -t cpu_usage -o data/multi_feature -f day weekday hour minute hist-1D8H hist-1D4H hist-1D2H hist-1D1H hist-1D hist-1D15m hist-1D30m hist-1D45m VM_ID -c -P 2 -d model -R data/multi/raw-feature.csv.gz
+./bin/run_local.sh -t cpu_usage -o data/multi_feature -f day weekday hour minute hist-1D8H hist-1D4H hist-1D2H hist-1D1H hist-1D hist-1D15m hist-1D30m hist-1D45m VM_ID -c -P 2 -d model data/multi/raw-feature.csv.gz
 
 # training + push to a running server (preprocessed data)
 ./bin/run_local.sh -t cpu_usage -a "http://localhost:8887/v1/models" data/single/train.csv
@@ -198,13 +198,15 @@ optional arguments:
                         'hour', 'minute'])
   -M ML_PLATFORM, --ML_platform ML_PLATFORM
                         specify machine learning platform to use (default: SK)
-  -R, --is_raw_data     for the push and dump options, perform feature
-                        processing (default: False)
   -a PUSH_ADDRESS, --push_address PUSH_ADDRESS
                         server address to push the model (default: )
   -d DUMP_PICKLE, --dump_pickle DUMP_PICKLE
                         dump model to a pickle directory for local running
                         (default: )
+
+  (only for single-model mode)
+  -R, --is_raw_data     for the push and dump options, perform feature
+                        processing (default: False)
 ```
 
 

@@ -77,32 +77,22 @@ class CromeProcessor(object):
         return df_result, VM_list
 
         
-    def build_model_from_CSV (self, file_list, data_out=None, is_raw_data=True):
+    def build_model_from_CSV (self, file_list, data_out=None):
         # Note:  all files in the list will be appended
-        if is_raw_data:
-            master_df, VM_list = self.preprocess_files(file_list)
-        else:
-            master_df = pd.DataFrame()
-            for filename in file_list:
-                print ("build_model_from_CSV reading: ", filename)
-                master_df = pd.concat([master_df, pd.read_csv(filename)])
-            VM_list = sorted(list(set(master_df[self.entity_col])))
+        master_df, VM_list = self.preprocess_files(file_list)
         train_start, range_end = self.find_time_range (master_df)       # TBD:  allow user to specify start/stop dates
         train_stop = train_start + self.train_interval
-        xmodel = self.train_timeslice_model (master_df, VM_list, train_start, train_stop, featfile=data_out)
-        return xmodel
+        xmodel, train_data = self.train_timeslice_model (master_df, VM_list, train_start, train_stop, featfile=data_out)
+        return xmodel, train_data
 
-    def push_model(self, CSV_filename, api, is_raw_data=False):
-        #from vm_predictor import push_cognita
+    def push_model(self, CSV_filenames, api):
         import cognita_client
-        print (">> %s:  Loading raw features, training model" % CSV_filename)
-        model = self.build_model_from_CSV(CSV_filename, is_raw_data=is_raw_data)
-        print (">> %s:  Reload features, push to cognita" % CSV_filename)
-        df = pd.read_csv(CSV_filename)
-
-        #info = push_cognita.push_to_cognita(model, df, self.features, api=api)
+        print (">> %s:  Loading raw features, training model" % CSV_filenames)
+        model, train_data = self.build_model_from_CSV(CSV_filenames)
         try:
-            cognita_client.push.push_sklearn_model(model, df[self.features],
+            # note extra dependencies should be loaded here; synchronized in requirements.txt
+            #reqString = "cognita-client, pandas, sklearn, scipy, matplotlib"
+            cognita_client.push.push_sklearn_model(model, train_data[self.features],
                                                    extra_deps=None, api=api)
         except Exception as e:
             print(">> Error: Push error {:}".format(str(e.args[0])).encode("utf-8"))
@@ -110,22 +100,15 @@ class CromeProcessor(object):
         return True
 
 
-    def dump_model(self, CSV_filename, model_file, is_raw_data=False):
-        #from vm_predictor import push_cognita
+    def dump_model(self, CSV_filenames, model_dir):
         from cognita_client.dump import dump_sklearn_model
+        from os import path, makedirs
 
-        print (">> %s:  Loading raw features, training model" % CSV_filename)
-        model = self.build_model_from_CSV(CSV_filename, is_raw_data=is_raw_data)
-        print (">> %s:  Reload features, push to cognita" % CSV_filename)
-        df = pd.read_csv(CSV_filename)
-
-        #info = push_cognita.push_to_cognita(model, df, self.features, api=api)
-        try:
-            dump_sklearn_model(model, df[self.features], model_file)
-        except Exception as e:
-            print(">> Error: Push error {:}".format(str(e.args[0])).encode("utf-8"))
-            return False
-        return True
+        if not path.isdir(model_dir) or not path.exists(model_dir):
+            makedirs(model_dir)
+        print (">> %s:  Loading raw features, training model" % CSV_filenames)
+        model, train_data = self.build_model_from_CSV(CSV_filenames)
+        dump_sklearn_model(model, train_data[self.features], model_dir)
 
     def preprocess_files (self, file_list):
         big_df = pd.DataFrame()
@@ -153,7 +136,7 @@ class CromeProcessor(object):
                 break
             predict_stop = predict_start + self.predict_interval
             print (">>    train from %s to %s;  predict from %s to %s" % (train_start, train_stop, predict_start, predict_stop))
-            xmodel = self.train_timeslice_model (master_df, VM_list, train_start, train_stop)
+            xmodel, train_data = self.train_timeslice_model (master_df, VM_list, train_start, train_stop)
             if xmodel:
                 preds = self.predict_timeslice_model (xmodel, master_df, VM_list, predict_start, predict_stop)
                 result = pd.concat([result, preds])
@@ -175,7 +158,7 @@ class CromeProcessor(object):
         if len(train_data) >= self.min_train_rows and self.check_valid_target (train_data):
             print (">>      training %s entities %s total rows" % (len(VM_list), len(train_data)))
             bigmodel = self.model.fit (train_data[self.features], train_data[self.target_col])
-        return bigmodel
+        return bigmodel, train_data
 
         
     def predict_timeslice_model (self, bigmodel, master_df, VM_list, predict_start, predict_stop, featfile=None):
@@ -522,8 +505,7 @@ def main():
     parser.add_argument('-i', '--set_param', help='set ML model integer parameter', action='append', nargs=2, default=[])
     parser.add_argument('-f', '--features', nargs='+', help='list of features to use', default=['month', 'day', 'weekday', 'hour', 'minute'])
     parser.add_argument('-M', '--ML_type', help='specify machine learning model type to use', default='RF')
-    parser.add_argument('-R', '--is_raw_data', help='for the push and dump options, perform feature processing', default=False, action='store_true')
-    parser.add_argument('-a', '--push_address', help='server address to push the model', default='')
+    parser.add_argument('-a', '--push_address', help='server address to push the model (e.g. http://localhost:8887/v1/models)', default='')
     parser.add_argument('-d', '--dump_pickle', help='dump model to a pickle directory for local running', default='')
 
     cfg = parser.parse_args()
@@ -563,14 +545,12 @@ def main():
         file_list = [[x] for x in cfg.files[:cfg.max_files]]
         
     for fnames in file_list:
-        if len(cfg.push_address)!=0:
-            cp.push_model(fnames, cfg.push_address, cfg.is_raw_data)
-        elif len(cfg.dump_pickle)!=0:
-            cp.dump_model(fnames, cfg.dump_pickle, cfg.is_raw_data)
-        elif len(cfg.png_dir)!=0 and (exists(cp.compose_chart_name(basename(fname))) or exists(cp.compose_chart_name(basename(fname), 'original'))):
-            print (">> %s:  chart already exists, skipped" % fname)
-        if len(cfg.push_address)!=0:
+        if cfg.push_address:
             cp.push_model(fnames, cfg.push_address)
+        elif cfg.dump_pickle:
+            cp.dump_model(fnames, cfg.dump_pickle)
+        elif cfg.png_dir and (exists(cp.compose_chart_name(basename(fname))) or exists(cp.compose_chart_name(basename(fname), 'original'))):
+            print (">> %s:  chart already exists, skipped" % fname)
         else:
             results, VM_list = cp.process_CSVfiles (fnames)
             if cfg.write_predictions:
@@ -581,10 +561,10 @@ def main():
                     cp.draw_compound_charts(views)
                 if cfg.separate:
                     cp.draw_charts(views)
-                if len(cfg.push_address) != 0:
-                    cp.push_model(fnames, cfg.push_address, cfg.is_raw_data)
-                elif len(cfg.dump_pickle) != 0:
-                    cp.dump_model(fnames, cfg.dump_pickle, cfg.is_raw_data)
+                if cfg.push_address:
+                    cp.push_model(fnames, cfg.push_address)
+                elif cfg.dump_pickle:
+                    cp.dump_model(fnames, cfg.dump_pickle)
 
 
 if __name__ == "__main__":
