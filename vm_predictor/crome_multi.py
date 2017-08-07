@@ -10,7 +10,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 
 from os import listdir, makedirs
-from os.path import isfile, join, basename, exists
+from os.path import isfile, join, basename, exists, dirname, abspath
 import matplotlib 
 matplotlib.use ("Agg")
 import matplotlib.pyplot as plt
@@ -86,14 +86,14 @@ class CromeProcessor(object):
         return xmodel, train_data
 
     def push_model(self, CSV_filenames, api):
-        import cognita_client
+        from cognita_client.push import push_sklearn_model
         print (">> %s:  Loading raw features, training model" % CSV_filenames)
         model, train_data = self.build_model_from_CSV(CSV_filenames)
         try:
             # note extra dependencies should be loaded here; synchronized in requirements.txt
             #reqString = "cognita-client, pandas, sklearn, scipy, matplotlib"
-            cognita_client.push.push_sklearn_model(model, train_data[self.features],
-                                                   extra_deps=None, api=api)
+            push_sklearn_model(model, train_data[self.features], extra_deps=None, api=api)
+            print (">> %s:  Succesful push " % api)
         except Exception as e:
             print(">> Error: Push error {:}".format(str(e.args[0])).encode("utf-8"))
             return False
@@ -101,7 +101,7 @@ class CromeProcessor(object):
 
 
     def dump_model(self, CSV_filenames, model_dir):
-        from cognita_client.dump import dump_sklearn_model
+        from cognita_client.wrap.dump import dump_sklearn_model
         from os import path, makedirs
 
         if not path.isdir(model_dir) or not path.exists(model_dir):
@@ -506,7 +506,7 @@ def main():
     parser.add_argument('-f', '--features', nargs='+', help='list of features to use', default=['month', 'day', 'weekday', 'hour', 'minute'])
     parser.add_argument('-M', '--ML_type', help='specify machine learning model type to use', default='RF')
     parser.add_argument('-a', '--push_address', help='server address to push the model (e.g. http://localhost:8887/v1/models)', default='')
-    parser.add_argument('-d', '--dump_pickle', help='dump model to a pickle directory for local running', default='')
+    parser.add_argument('-d', '--dump_model', help='dump model to a pickle directory for local running', default='')
 
     cfg = parser.parse_args()
 
@@ -547,8 +547,8 @@ def main():
     for fnames in file_list:
         if cfg.push_address:
             cp.push_model(fnames, cfg.push_address)
-        elif cfg.dump_pickle:
-            cp.dump_model(fnames, cfg.dump_pickle)
+        elif cfg.dump_model:
+            cp.dump_model(fnames, cfg.dump_model)
         elif cfg.png_dir and (exists(cp.compose_chart_name(basename(fname))) or exists(cp.compose_chart_name(basename(fname), 'original'))):
             print (">> %s:  chart already exists, skipped" % fname)
         else:
@@ -563,8 +563,8 @@ def main():
                     cp.draw_charts(views)
                 if cfg.push_address:
                     cp.push_model(fnames, cfg.push_address)
-                elif cfg.dump_pickle:
-                    cp.dump_model(fnames, cfg.dump_pickle)
+                elif cfg.dump_model:
+                    cp.dump_model(fnames, cfg.dump_model)
 
 
 if __name__ == "__main__":

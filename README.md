@@ -106,7 +106,7 @@ To create charts from those JSON files another tool is used:  *preds2charts.py*.
 
 To install vm-predictor just clone this repository and use pip.  
 
-**Note** You must have installed `cognita-python-client` before this package can be installed.  It is not included in the requirements file at this time because it is stored on a private repository, likely at [this url](../cognita-python-client/src).
+**Note** You must have installed `cognita_client` before this package can be installed. 
 ```
 git clone <vm-predictor repo url>
 pip install .
@@ -124,6 +124,9 @@ and push it to a locally running Cognita mock server with the following example.
 ```
 # training + dump for a single model in a directory (raw data)
 ./bin/run_local.sh -t cpu_usage -o data/multi_feature -f day weekday hour minute hist-1D8H hist-1D4H hist-1D2H hist-1D1H hist-1D hist-1D15m hist-1D30m hist-1D45m VM_ID -c -P 2 -d model data/multi/raw-feature.csv.gz
+
+# training + dump for a single model in a directory (raw data)
+./bin/run_local.sh -t cpu_usage -o data/multi_feature -f day weekday hour minute hist-1D8H hist-1D4H hist-1D2H hist-1D1H hist-1D hist-1D15m hist-1D30m hist-1D45m VM_ID -c -P 2 -a "http://localhost:8887/v1/models" data/multi/raw-feature.csv.gz
 
 # training + push to a running server (preprocessed data)
 ./bin/run_local.sh -t cpu_usage -a "http://localhost:8887/v1/models" data/single/train.csv
@@ -200,8 +203,8 @@ optional arguments:
                         specify machine learning platform to use (default: SK)
   -a PUSH_ADDRESS, --push_address PUSH_ADDRESS
                         server address to push the model (default: )
-  -d DUMP_PICKLE, --dump_pickle DUMP_PICKLE
-                        dump model to a pickle directory for local running
+  -d DUMP_MODEL, --dump_model DUMP_MODEL
+                        dump model to a directory for local running
                         (default: )
 
   (only for single-model mode)
