@@ -25,7 +25,7 @@ setup(
     [console_scripts]
     """,
     #setup_requires=['pytest-runner'],
-    install_requires=['cognita-python-client',
+    install_requires=['cognita_client',
                       'numpy',
                       'scipy',
                       'sklearn'],
