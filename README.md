@@ -106,7 +106,7 @@ To create charts from those JSON files another tool is used:  *preds2charts.py*.
 
 To install vm-predictor just clone this repository and use pip.  
 
-**Note** You must have installed `cognita-python-client` before this package can be installed.  It is not included in the requirements file at this time because it is stored on a private repository, likely at [this url](../cognita-python-client/src).
+**Note** You must have installed `cognita_client` before this package can be installed. 
 ```
 git clone <vm-predictor repo url>
 pip install .
