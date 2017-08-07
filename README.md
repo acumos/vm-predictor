@@ -200,8 +200,8 @@ optional arguments:
                         specify machine learning platform to use (default: SK)
   -a PUSH_ADDRESS, --push_address PUSH_ADDRESS
                         server address to push the model (default: )
-  -d DUMP_PICKLE, --dump_pickle DUMP_PICKLE
-                        dump model to a pickle directory for local running
+  -d DUMP_MODEL, --dump_model DUMP_MODEL
+                        dump model to a directory for local running
                         (default: )
 
   (only for single-model mode)
