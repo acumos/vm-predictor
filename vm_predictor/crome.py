@@ -172,35 +172,40 @@ class CromeProcessor(object):
         return self.model.predict(df)
 
     def push_model(self, CSV_filename, api, is_raw_data=False):
-        #from vm_predictor import push_cognita
-        import cognita_client
         print (">> %s:  Loading raw features, training model" % CSV_filename)
         model = self.build_model_from_CSV(CSV_filename, is_raw_data=is_raw_data)
         print (">> %s:  Reload features, push to cognita" % CSV_filename)
         df = pd.read_csv(CSV_filename)
 
-        #info = push_cognita.push_to_cognita(model, df, self.features, api=api)
+        from vm_predictor.push_cognita import push_model as _push_model
         try:
-            cognita_client.push.push_sklearn_model(model, df[self.features],
-                                                   extra_deps=None, api=api)
+            # note extra dependencies should be loaded here; synchronized in requirements.txt
+            #reqString = "cognita-client, pandas, sklearn, scipy, matplotlib"
+            if _push_model(model, df[self.features], extra_deps=None, api=api) is not None:
+                print (">> %s:  Succesful model push " % api)
+                return True
         except Exception as e:
-            print(">> Error: Push error {:}".format(str(e.args[0])).encode("utf-8"))
-            return False
-        return True
+            print(">> Error: Model push error {:}".format(str(e.args[0])).encode("utf-8"))
+        return False
 
     def dump_model(self, CSV_filename, model_dir, is_raw_data=False):
         from cognita_client.dump import dump_sklearn_model
-        from os import path, makedirs
-
-        if not path.isdir(model_dir) or not path.exists(model_dir):
-            makedirs(model_dir)
 
         print (">> %s:  Loading raw features, training model" % CSV_filename)
         model = self.build_model_from_CSV(CSV_filename, is_raw_data=is_raw_data)
         print (">> %s:  Reload features, dump to file" % CSV_filename)
         df = pd.read_csv(CSV_filename)
-        dump_sklearn_model(model, df[self.features], model_dir)
+        _dump_model(model, df[self.features], model_dir, extra_deps=None)
         return True
+
+
+    def dump_model(self, CSV_filenames, model_dir):
+        from vm_predictor.push_cognita import dump_model as _dump_model
+        from os import path, makedirs
+        if not path.isdir(model_dir) or not path.exists(model_dir):
+            makedirs(model_dir)
+        print (">> %s:  Loading raw features, training model" % CSV_filenames)
+        model, train_data = self.build_model_from_CSV(CSV_filenames)
 
 
     def add_derived_features (self, df):

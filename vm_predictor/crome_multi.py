@@ -14,7 +14,6 @@ from os.path import isfile, join, basename, exists, dirname, abspath
 import matplotlib 
 matplotlib.use ("Agg")
 import matplotlib.pyplot as plt
-import datetime
 from matplotlib.dates import YearLocator, MonthLocator, DayLocator, HourLocator, DateFormatter
 
 from vm_predictor.StringColumnEncoder import StringColumnEncoder
@@ -86,29 +85,24 @@ class CromeProcessor(object):
         return xmodel, train_data
 
     def push_model(self, CSV_filenames, api):
-        from cognita_client.push import push_sklearn_model
         print (">> %s:  Loading raw features, training model" % CSV_filenames)
         model, train_data = self.build_model_from_CSV(CSV_filenames)
+        from vm_predictor.push_cognita import push_model as _push_model
         try:
             # note extra dependencies should be loaded here; synchronized in requirements.txt
             #reqString = "cognita-client, pandas, sklearn, scipy, matplotlib"
-            push_sklearn_model(model, train_data[self.features], extra_deps=None, api=api)
-            print (">> %s:  Succesful push " % api)
+            if _push_model(model, train_data[self.features], extra_deps=None, api=api) is not None:
+                print (">> %s:  Succesful model push " % api)
+                return True
         except Exception as e:
-            print(">> Error: Push error {:}".format(str(e.args[0])).encode("utf-8"))
-            return False
-        return True
-
+            print(">> Error: Model push error {:}".format(str(e.args[0])).encode("utf-8"))
+        return False
 
     def dump_model(self, CSV_filenames, model_dir):
-        from cognita_client.wrap.dump import dump_sklearn_model
-        from os import path, makedirs
-
-        if not path.isdir(model_dir) or not path.exists(model_dir):
-            makedirs(model_dir)
+        from vm_predictor.push_cognita import dump_model as _dump_model
         print (">> %s:  Loading raw features, training model" % CSV_filenames)
         model, train_data = self.build_model_from_CSV(CSV_filenames)
-        dump_sklearn_model(model, train_data[self.features], model_dir)
+        _dump_model(model, train_data[self.features], model_dir, extra_deps=None)
 
     def preprocess_files (self, file_list):
         big_df = pd.DataFrame()

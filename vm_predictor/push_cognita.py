@@ -15,22 +15,32 @@ from cognita_client.api import Api
 #-----------------------------
 
 
-
-def push_to_cognita (model, dataframe, feat_cols, api=None):
-    apiObj = Api()
-    #username = 'mt531r'
-    #if not api.users.exists({'username': username}):
-    #    api.users.create(json={'username': username})
-    
+def push_model(model, dataframe, api, extra_deps=None, name= 'vm_predictor'):
+    from cognita_client.push import push_sklearn_model
     template_name = 'vm_predictor'
-    
-    # push the model to cognita. this will take ~ 1m to build the solution (docker image)
-    cognita_client.push.push_sklearn_model(model, dataframe[feat_cols],
-                                            extra_deps=None, api=api)
-    return {'template': template_name}
-    
-    
-    
+    try:
+        # note extra dependencies should be loaded here; synchronized in requirements.txt
+        #reqString = "cognita-client, pandas, sklearn, scipy, matplotlib"
+        # apiObj = Api()
+        # username = 'mt531r'
+        # if not api.users.exists({'username': username}):
+        #    api.users.create(json={'username': username})
+        # push the model to cognita. this will take ~ 1m to build the solution (docker image)
+        push_sklearn_model(model, dataframe, extra_deps=extra_deps, api=api, name=name)
+        print (">> %s:  Succesful model push " % api)
+        return {'template': template_name}
+    except Exception as e:
+        print(">> Error: Model push error {:}".format(str(e.args[0])).encode("utf-8"))
+    return None
+
+
+def dump_model(model, dataframe, model_dir, extra_deps=None, name= 'vm_predictor'):
+    from cognita_client.wrap.dump import dump_sklearn_model
+    from os import path, makedirs
+    dump_sklearn_model(model, dataframe, model_dir, extra_deps=extra_deps, name=name)
+    print(">> %s:  Succesful model dump " % model_dir)
+
+
 def get_predictor (info):
     api = Api()
     #user_id = api.users.one({'username': info['user']})['id']
