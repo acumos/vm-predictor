@@ -1,0 +1,78 @@
+/*
+.container {
+  margin:0;
+  width: 100%;
+}
+*/
+
+/*
+.chart-perf {
+    margin: -35% -5% 35% 36%;
+
+}
+*/
+
+.graph_crop {
+    overflow: hidden;
+}
+img.graph_zoom {
+    margin: -4.25% 0 -9% 0%;
+}
+img.graph_summary {
+    /*margin: -4% 0 -34.5% -35.5%;*/
+    margin: -4.25% 0 -34.5% 0;
+}
+
+.border-padding {
+    border: 5px solid white;
+    padding: 2px;
+    font-weight: bold;
+}
+.border-padding:hover {
+    background: #5bc0de; /*@brand-info;  /* same as bg-info in bootstrap */
+    cursor: pointer;
+}
+
+.border-selected {
+    background: #337ab7; /*@brand-primary;  /* same as bg-info in bootstrap */
+    color: white;
+}
+
+.info_example, .info_legend {
+    margin-right: 0;
+    margin-left: 0;
+    background-color: #fff;
+    border-color: #bbb; /*gray-lighter; */
+    border-width: 1px;
+    border-radius: 4px;
+    -webkit-box-shadow: none;
+    box-shadow: none;
+    position: relative;
+    padding: 45px 15px 15px;
+    /*margin: 0 -15px 15px;*/
+    border-style: solid;
+}
+.info_legend {
+    padding: 5px 15px;
+    margin: 5px 0;
+}
+
+.info_legend span, .info_example span {
+    font-size: 12px;
+    font-weight: 700;
+    color: #777; /* @gray-light; */
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    content: "Example";
+}
+.info_example span {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+}
+.info_legend span.red {
+    color: #d9534f;; /*@brand-danger; */
+}
+.info_legend span.blue {
+    color: #337ab7; /*@brand-primary;  */
+}
