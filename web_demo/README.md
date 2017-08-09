@@ -1,11 +1,8 @@
 # VM Resource Predictor Example
-This web page sample uses simple web technologies like
-[bootstrap-3.3.7](http://getbootstrap.com/getting-started/#download),
-[AngularJS 1.6.1](https://angularjs.org/),
-[jQuery 3.2.1](https://jquery.com/download/), and
-[UI Bootstrap 2.5](https://angular-ui.github.io/bootstrap/#!#getting_started).
+This web page visualizes reports for policy optimization of hosted
+ customer VMs.
 
-## Example predictor demo
+## Running Example
 This demonstration web page shows plots of predicted and historical resource
 values for memory, CPU, and network throughput from actual customer VMs
 running a firewall VNF.
@@ -19,3 +16,10 @@ instance or by retrieving recent historical predictions and values from
 a live database.
 
 * ![example web application for resource prediction](assets/example_running.jpg "Example web application for resource prediction")
+
+## Web Technologies
+For interactions, this page uses open-source web technologies like
+[bootstrap-3.3.7](http://getbootstrap.com/getting-started/#download),
+[AngularJS 1.6.1](https://angularjs.org/),
+[jQuery 3.2.1](https://jquery.com/download/), and
+[UI Bootstrap 2.5](https://angular-ui.github.io/bootstrap/#!#getting_started).
