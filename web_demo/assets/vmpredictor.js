@@ -1,30 +1,10 @@
 /**
- image-classes.js - send frames to an image classification service
+ vmpredictor.js - angular backend for interaction with vm predictor demo
 
- Videos or camera are displayed locally and frames are periodically sent to GPU image-net classifier service (developed by Zhu Liu) via http post.
- For webRTC, See: https://gist.github.com/greenido/6238800
- 
- D. Gibbon 6/3/15
- D. Gibbon 4/19/17 updated to new getUserMedia api, https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia
- D. Gibbon 8/1/17 adapted for Cognita
+ E. Zavesky 8/8/17 adapted for Cognita
  */
  
 "use strict";
-
-/**
- * main entry point
- */
-$(document).ready(function() {
-	$(document.body).data('hdparams', {	// store global vars in the body element
-		frameCounter: 0,
-		totalFrames: 900000,	// stop after this many frames just to avoid sending frames forever if someone leaves page up
-		frameInterval: 500,		// Milliseconds to sleep between sending frames to reduce server load and reduce results updates
-		frameTimer: -1,		// frame clock for processing
-		maxSrcVideoWidth: 512,	// maximum image width for processing
-	});
-
-});
-
 
 /*
  * Control for selecting different date range
