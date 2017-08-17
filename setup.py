@@ -27,6 +27,7 @@ setup(
     #setup_requires=['pytest-runner'],
     install_requires=['cognita_client',
                       'numpy',
+                      'pandas',
                       'scipy',
                       'sklearn'],
     tests_require=['pytest',
