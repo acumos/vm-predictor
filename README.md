@@ -102,7 +102,7 @@ To create charts from those JSON files another tool is used:  *preds2charts.py*.
     python preds2charts.py ./predict/*.json
 
 
-# Installation
+## Optional Installation
 
 To install vm-predictor just clone this repository and use pip.
 
@@ -115,32 +115,28 @@ pip install .
 
 To run the model training and push to a respective back-end server, use the installed
 script ``run_vm-predictor_reference.py``.  As a convenience, to run the script locally
-without installing (during development), use the commmand ``bin/run_local.sh``.
+_without installing_ (during development), use the commmand ``bin/run_local.sh``.
 
 This repo currently includes example training and testing data.  You can create a model
 and push it to a locally running Acumos mock server with the following example.
+
+**NOTE** The examples pushing to a library are using the reference `testing/upload/app.py`
+server in the main `acumos` package to simulate backend testing in these examples.
 
 ```
 (multiple VM training)
 # training + dump for a multi-vm model in a directory (raw data)
 ./bin/run_local.sh multi -t cpu_usage -o data/multi_feature -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID -c -P 2 -d model_multi data/multi/raw-feature.csv.gz
 
-# training + push for a multi-vm model in a directory (raw data)
-./bin/run_local.sh multi -t cpu_usage -o data/multi_feature -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID -c -P 2 -a "http://localhost:8887/v1/models" data/multi/raw-feature.csv.gz
+# training + push for a multi-vm model in a directory (raw data) -- note, asssumes localhost testing server, user:foo, pass:bar
+./bin/run_local.sh multi -t cpu_usage -o data/multi_feature -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID -c -P 2 data/multi/raw-feature.csv.gz -a "http://localhost:8887/v2/upload" -A "http://localhost:8887/v2/auth"
 
-(single VM training)
+(single VM training, preprocessed data)
 # training + dump for a single model in a directory (raw data)
-./bin/run_local.sh single -t cpu_usage -d single_model -f day weekday hour minute hist-1D VM_ID -d . data/train.csv
+./bin/run_local.sh single -t cpu_usage -d single_model -f day weekday hour minute hist_1D VM_ID -d model_single data/single/train.csv
 
-# training + push for a single model in a directory (raw data)
-./bin/run_local.sh single -t cpu_usage -o data/multi_feature -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID -c -P 2 -a "http://localhost:8887/v1/models" data/multi/raw-feature.csv.gz
-
-(single mode, preprocesed)
-# training + push to a running server (preprocessed data)
-./bin/run_local.sh single -t cpu_usage -a "http://localhost:8887/v1/models" data/single/train.csv
-
-# training + dump for a single model in a directory (preprocessed data)
-./bin/run_local.sh single -t cpu_usage -d single_model -f day weekday hour minute hist_1D VM_ID -d model data/single/train.csv
+# training + push for a single model in a directory (raw data) -- note, asssumes localhost testing server, user:foo, pass:bar
+./bin/run_local.sh single -t cpu_usage -f day weekday hour minute hist_1D VM_ID -d model_single data/single/train.csv -a "http://localhost:8887/v2/upload" -A "http://localhost:8887/v2/auth"
 ```
 
 

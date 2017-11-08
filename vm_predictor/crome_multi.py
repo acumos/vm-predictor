@@ -497,7 +497,8 @@ def main():
     parser.add_argument('-i', '--set_param', help='set ML model integer parameter', action='append', nargs=2, default=[])
     parser.add_argument('-f', '--features', nargs='+', help='list of features to use', default=['month', 'day', 'weekday', 'hour', 'minute'])
     parser.add_argument('-M', '--ML_type', help='specify machine learning model type to use', default='RF')
-    parser.add_argument('-a', '--push_address', help='server address to push the model (e.g. http://localhost:8887/v1/models)', default='')
+    parser.add_argument('-a', '--push_address', help='server address to push the model (e.g. http://localhost:8887/upload)', default='')
+    parser.add_argument('-A', '--auth_address', help='server address for login and push of the model (e.g. http://localhost:8887/auth)', default='')
     parser.add_argument('-d', '--dump_model', help='dump model to a pickle directory for local running', default='')
 
     cfg = parser.parse_args()
@@ -538,7 +539,7 @@ def main():
 
     for fnames in file_list:
         if cfg.push_address:
-            cp.push_model(fnames, cfg.push_address)
+            cp.push_model(fnames, cfg.push_address, cfg.auth_address)
         elif cfg.dump_model:
             cp.dump_model(fnames, cfg.dump_model)
         elif cfg.png_dir and (exists(cp.compose_chart_name(basename(fnames))) or exists(cp.compose_chart_name(basename(fnames), 'original'))):
@@ -554,7 +555,7 @@ def main():
                 if cfg.separate:
                     cp.draw_charts(views)
                 if cfg.push_address:
-                    cp.push_model(fnames, cfg.push_address)
+                    cp.push_model(fnames, cfg.push_address, cfg.auth_address)
                 elif cfg.dump_model:
                     cp.dump_model(fnames, cfg.dump_model)
 

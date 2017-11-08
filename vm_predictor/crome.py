@@ -482,8 +482,8 @@ def main():
     parser.add_argument('-f', '--features', nargs='+', help='list of features to use', default=['day', 'weekday', 'hour', 'minute'])
     parser.add_argument('-M', '--ML_platform', help='specify machine learning platform to use', default='RF')
     parser.add_argument('-R', '--is_raw_data', help='for the push and dump options, perform feature processing', default=False, action='store_true')
-    parser.add_argument('-a', '--push_address', help='server address to push the model', default='')
-    parser.add_argument('-A', '--auth_address', help='server address for login and push of the model', default='')
+    parser.add_argument('-a', '--push_address', help='server address to push the model (e.g. http://localhost:8887/upload)', default='')
+    parser.add_argument('-A', '--auth_address', help='server address for login and push of the model (e.g. http://localhost:8887/auth)', default='')
     parser.add_argument('-d', '--dump_pickle', help='dump model to a pickle directory for local running', default='')
 
     cfg = parser.parse_args()
