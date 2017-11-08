@@ -111,7 +111,7 @@ git clone <vm-predictor repo url>
 pip install .
 ```
 
-## Single-VM training examples
+## model training examples
 
 To run the model training and push to a respective back-end server, use the installed
 script ``run_vm-predictor_reference.py``.  As a convenience, to run the script locally
@@ -121,17 +121,26 @@ This repo currently includes example training and testing data.  You can create 
 and push it to a locally running Acumos mock server with the following example.
 
 ```
+(multiple VM training)
+# training + dump for a multi-vm model in a directory (raw data)
+./bin/run_local.sh multi -t cpu_usage -o data/multi_feature -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID -c -P 2 -d model_multi data/multi/raw-feature.csv.gz
+
+# training + push for a multi-vm model in a directory (raw data)
+./bin/run_local.sh multi -t cpu_usage -o data/multi_feature -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID -c -P 2 -a "http://localhost:8887/v1/models" data/multi/raw-feature.csv.gz
+
+(single VM training)
 # training + dump for a single model in a directory (raw data)
-./bin/run_local.sh -t cpu_usage -o data/multi_feature -f day weekday hour minute hist-1D8H hist-1D4H hist-1D2H hist-1D1H hist-1D hist-1D15m hist-1D30m hist-1D45m VM_ID -c -P 2 -d model data/multi/raw-feature.csv.gz
+./bin/run_local.sh single -t cpu_usage -d single_model -f day weekday hour minute hist-1D VM_ID -d . data/train.csv
 
 # training + push for a single model in a directory (raw data)
-./bin/run_local.sh -t cpu_usage -o data/multi_feature -f day weekday hour minute hist-1D8H hist-1D4H hist-1D2H hist-1D1H hist-1D hist-1D15m hist-1D30m hist-1D45m VM_ID -c -P 2 -a "http://localhost:8887/v1/models" data/multi/raw-feature.csv.gz
+./bin/run_local.sh single -t cpu_usage -o data/multi_feature -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID -c -P 2 -a "http://localhost:8887/v1/models" data/multi/raw-feature.csv.gz
 
+(single mode, preprocesed)
 # training + push to a running server (preprocessed data)
-./bin/run_local.sh -t cpu_usage -a "http://localhost:8887/v1/models" data/single/train.csv
+./bin/run_local.sh single -t cpu_usage -a "http://localhost:8887/v1/models" data/single/train.csv
 
 # training + dump for a single model in a directory (preprocessed data)
-./bin/run_local.sh -t cpu_usage -d single_model -f day weekday hour minute hist-1D VM_ID -d model data/single/train.csv
+./bin/run_local.sh single -t cpu_usage -d single_model -f day weekday hour minute hist_1D VM_ID -d model data/single/train.csv
 ```
 
 
@@ -224,8 +233,8 @@ The features used are, by default, only time-based features such as 'month', 'da
 For enhanced ML performance however additional features may be required.
 When the default is not used ALL features must be listed on the command line with the "-f" switch.
 In some cases the data files themselves contain features of value.  Just add the name of the desired column to the feature list, for example "VM_ID".
-Additionally crome_multi.py provides specialized syntax to give access to prior values of the target, as features.  If a feature begins with "hist-" it indicates such a 'historical' feature.  The time displacement string immediately follows, for example 'hist-1D' is the target value one day previous.  'hist-1H' is one hour previous;  'hist-1D1H' is one day plus one hour previous.  And so on.
-Those historical values are point values (according to the base sample size) so to sample over a longer period add a second parameter after a dash.  'hist-2D-1H' specifies the previous target value two days ago averaged over one hour.
+Additionally crome_multi.py provides specialized syntax to give access to prior values of the target, as features.  If a feature begins with "hist_" it indicates such a 'historical' feature.  The time displacement string immediately follows, for example 'hist_1D' is the target value one day previous.  'hist_1H' is one hour previous;  'hist_1D1H' is one day plus one hour previous.  And so on.
+Those historical values are point values (according to the base sample size) so to sample over a longer period add a second parameter after a dash.  'hist_2D-1H' specifies the previous target value two days ago averaged over one hour.
 See below for more examples.
 
 
@@ -249,19 +258,19 @@ Also, the base class can easily accomodate your own *custom* models especially v
 This example trains and predicts multi-VM models on dates in February and March with target net_usage, outputs Simple and Compound charts to folder "FebMar", and uses a combination of datetime and historical features.
 
 ```
-python crome_multi.py -j ff/FEAT_VM_1702_1703.csv ff/FEAT_VM_1703_1704.csv -s -c -t net_usage -f day weekday hour minute hist-1D8H hist-1D4H hist-1D2H hist-1D1H hist-1D hist-1D15m hist-1D30m hist-1D45m -o ./FebMar
+python crome_multi.py -j ff/FEAT_VM_1702_1703.csv ff/FEAT_VM_1703_1704.csv -s -c -t net_usage -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m -o ./FebMar
 ```
 
 This example trains and predicts multi-VM models through December and January on 'cpu_usage' (the default), but uses only the FIRST FIFTY entities (VMs) found in the files.  Predictions are not charted but are written as JSON files to folder './json'.  Also, the VM_ID column is added as a feature.
 
 ```
-python crome_multi.py -j ff/FEAT_VM_1612_1701.csv ff/FEAT_VM_1701_1702.csv -p -o ./json -v 50 -f day weekday hour minute hist-1D8H hist-1D4H hist-1D2H hist-1D1H hist-1D hist-1D15m hist-1D30m hist-1D45m VM_ID
+python crome_multi.py -j ff/FEAT_VM_1612_1701.csv ff/FEAT_VM_1701_1702.csv -p -o ./json -v 50 -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID
 ```
 
 This example trains and predicts multi-VM models on target 'net_usage' using only the first 10 VMs in the file FEAT_sampled.csv.  The prediction interval is 7 days.  Compound charts are output.  The ML model "Extra Trees With Scaling" is selected and the number of trees is set to 5.
 
 ```
-python crome_multi.py FEAT_sampled.csv -c -t net_usage -v 10 -o sk_test_et_sc -i et__n_estimators 5 -P 7 -f day weekday hour minute hist-1D8H hist-1D4H hist-1D2H hist-1D1H hist-1D hist-1D15m hist-1D30m hist-1D45m VM_ID -M ET_SC
+python crome_multi.py FEAT_sampled.csv -c -t net_usage -v 10 -o sk_test_et_sc -i et__n_estimators 5 -P 7 -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID -M ET_SC
 ```
 
 

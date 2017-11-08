@@ -20,7 +20,7 @@ setup(
     long_description = ("VM resource predictor based on historical data and context"),
     license = "Apache",
     package_data={'vm_predictor':['data/*']},
-    scripts=['bin/run_vm-predictor_reference.py'],
+    scripts=['bin/run_vm-predictor_reference_multi.py', 'bin/run_vm-predictor_reference_single.py'],
     entry_points="""
     [console_scripts]
     """,

@@ -112,6 +112,8 @@ class CromeProcessor(object):
         model, req = self.generate_model(CSV_filenames)
         session = AcumosSession()
         try:
+            if not exists(model_dir):
+                makedirs(model_dir)
             session.dump(model, 'VmPredictor', model_dir, req)  # creates ./my-iris.zip
             return True
         except Exception as e:

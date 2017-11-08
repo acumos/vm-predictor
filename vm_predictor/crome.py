@@ -198,6 +198,8 @@ class CromeProcessor(object):
 
         session = AcumosSession()
         try:
+            if not exists(model_dir):
+                makedirs(model_dir)
             session.dump(model, 'VmPredictor', model_dir, reqs)  # creates ./my-iris.zip
             return True
         except Exception as e:
@@ -216,11 +218,11 @@ class CromeProcessor(object):
                 df[feat] = df.index.hour
             elif feat == 'minute':
                 df[feat] = df.index.minute
-            elif feat.startswith('hist-'):      # history features are of the form "hist-x" or "hist-x-y" where x and y are valid Timedelta strings such as '1H'
-                params = feat.split("-")
+            elif feat.startswith('hist_'):      # history features are of the form "hist_x" or "hist_x_y" where x and y are valid Timedelta strings such as '1H'
+                params = feat.split("_")
                 p1 = params[1]                   # first parameter (x) is the shift i.e. how long ago
                 if len(params) > 2:
-                    p2 = feat.split("-")[2]      # 2nd param (y) if present is the size of the window
+                    p2 = feat.split("_")[2]      # 2nd param (y) if present is the size of the window
                     df[feat] = df[self.target_col].shift(freq=pd.Timedelta(p1)).rolling(p2).mean()
                 else:
                     df[feat] = df[self.target_col].shift(freq=pd.Timedelta(p1))
