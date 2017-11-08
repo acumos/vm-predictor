@@ -25,7 +25,7 @@ setup(
     [console_scripts]
     """,
     #setup_requires=['pytest-runner'],
-    install_requires=['cognita_client',
+    install_requires=['acumos',
                       'numpy',
                       'pandas',
                       'scipy',

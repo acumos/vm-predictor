@@ -1,7 +1,7 @@
 /**
  vmpredictor.js - angular backend for interaction with vm predictor demo
 
- E. Zavesky 8/8/17 adapted for Cognita
+ E. Zavesky 8/8/17 adapted for Acumos
  */
  
 "use strict";
