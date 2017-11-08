@@ -102,43 +102,48 @@ To create charts from those JSON files another tool is used:  *preds2charts.py*.
     python preds2charts.py ./predict/*.json
 
 
-# Installation
+## Optional Installation
 
-To install vm-predictor just clone this repository and use pip.  
+To install vm-predictor just clone this repository and use pip.
 
-**Note** You must have installed `cognita_client` before this package can be installed. 
 ```
 git clone <vm-predictor repo url>
 pip install .
 ```
 
-## Live training
+## model training examples
 
-To run the model training and push to a respective back-end server, use the installed 
-script ``run_vm-predictor_reference.py``.  As a convenience, to run the script locally 
-without installing (during development), use the commmand ``bin/run_local.sh``.
+To run the model training and push to a respective back-end server, use the installed
+script ``run_vm-predictor_reference.py``.  As a convenience, to run the script locally
+_without installing_ (during development), use the commmand ``bin/run_local.sh``.
 
 This repo currently includes example training and testing data.  You can create a model
-and push it to a locally running Cognita mock server with the following example.
+and push it to a locally running Acumos mock server with the following example.
+
+**NOTE** The examples pushing to a library are using the reference `testing/upload/app.py`
+server in the main `acumos` package to simulate backend testing in these examples.
 
 ```
+(multiple VM training)
+# training + dump for a multi-vm model in a directory (raw data)
+./bin/run_local.sh multi -t cpu_usage -o data/multi_feature -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID -c -P 2 -d model_multi data/multi/raw-feature.csv.gz
+
+# training + push for a multi-vm model in a directory (raw data) -- note, asssumes localhost testing server, user:foo, pass:bar
+./bin/run_local.sh multi -t cpu_usage -o data/multi_feature -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID -c -P 2 data/multi/raw-feature.csv.gz -a "http://localhost:8887/v2/upload" -A "http://localhost:8887/v2/auth"
+
+(single VM training, preprocessed data)
 # training + dump for a single model in a directory (raw data)
-./bin/run_local.sh -t cpu_usage -o data/multi_feature -f day weekday hour minute hist-1D8H hist-1D4H hist-1D2H hist-1D1H hist-1D hist-1D15m hist-1D30m hist-1D45m VM_ID -c -P 2 -d model data/multi/raw-feature.csv.gz
+./bin/run_local.sh single -t cpu_usage -d single_model -f day weekday hour minute hist_1D VM_ID -d model_single data/single/train.csv
 
-# training + dump for a single model in a directory (raw data)
-./bin/run_local.sh -t cpu_usage -o data/multi_feature -f day weekday hour minute hist-1D8H hist-1D4H hist-1D2H hist-1D1H hist-1D hist-1D15m hist-1D30m hist-1D45m VM_ID -c -P 2 -a "http://localhost:8887/v1/models" data/multi/raw-feature.csv.gz
-
-# training + push to a running server (preprocessed data)
-./bin/run_local.sh -t cpu_usage -a "http://localhost:8887/v1/models" data/single/train.csv
-
-# training + dump for a single model in a directory (preprocessed data)
-./bin/run_local.sh -t cpu_usage -d single_model -f day weekday hour minute hist-1D VM_ID -d model data/single/train.csv
+# training + push for a single model in a directory (raw data) -- note, asssumes localhost testing server, user:foo, pass:bar
+./bin/run_local.sh single -t cpu_usage -f day weekday hour minute hist_1D VM_ID -d model_single data/single/train.csv -a "http://localhost:8887/v2/upload" -A "http://localhost:8887/v2/auth"
 ```
+
 
 ### Grid search
 
 One feature of the multi-VM code is to allow a grid search of a few different
-parameters.  Generally, this requires **raw** features as 
+parameters.  Generally, this requires **raw** features as
 input so that the various can be utilized in the feature aggregation process.
 Note: There are still more paramters that can be tuned, but this script
 explores those with the biggest potential gains in performance. *(added 7/23)*
@@ -150,7 +155,7 @@ TBD
 
 ## Live evaluation
 
-To test the model on a swagger instance, you'll need to find the running instance and open its swagger page in a browser. (**NOTE** These instructions may change with the evolution of the back-end server) 
+To test the model on a swagger instance, you'll need to find the running instance and open its swagger page in a browser. (**NOTE** These instructions may change with the evolution of the back-end server)
 
 * First find the running instance by probing the running instances.  Look for a recent model, or dereference with the model named 'vm-predictor'
 ```
@@ -213,11 +218,6 @@ optional arguments:
 ```
 
 
-
-# Testing
-
-A simple unit test is planned but not currently available.
-
 # Additional Background
 
 ## MACHINE LEARNING BASICS
@@ -229,8 +229,8 @@ The features used are, by default, only time-based features such as 'month', 'da
 For enhanced ML performance however additional features may be required.
 When the default is not used ALL features must be listed on the command line with the "-f" switch.
 In some cases the data files themselves contain features of value.  Just add the name of the desired column to the feature list, for example "VM_ID".
-Additionally crome_multi.py provides specialized syntax to give access to prior values of the target, as features.  If a feature begins with "hist-" it indicates such a 'historical' feature.  The time displacement string immediately follows, for example 'hist-1D' is the target value one day previous.  'hist-1H' is one hour previous;  'hist-1D1H' is one day plus one hour previous.  And so on.
-Those historical values are point values (according to the base sample size) so to sample over a longer period add a second parameter after a dash.  'hist-2D-1H' specifies the previous target value two days ago averaged over one hour.
+Additionally crome_multi.py provides specialized syntax to give access to prior values of the target, as features.  If a feature begins with "hist_" it indicates such a 'historical' feature.  The time displacement string immediately follows, for example 'hist_1D' is the target value one day previous.  'hist_1H' is one hour previous;  'hist_1D1H' is one day plus one hour previous.  And so on.
+Those historical values are point values (according to the base sample size) so to sample over a longer period add a second parameter after a dash.  'hist_2D-1H' specifies the previous target value two days ago averaged over one hour.
 See below for more examples.
 
 
@@ -248,31 +248,34 @@ The set_param (-i) switch gives command-line access to one or more of the model'
 Code for choices "H2O" and "ARIMA" also exists but require a scikit wrapper to function within crome_multi.py (not included).
 Also, the base class can easily accomodate your own *custom* models especially via the scikit interface.
 
-   
-## EXAMPLES
+
+## Multi-VM training examples
 
 This example trains and predicts multi-VM models on dates in February and March with target net_usage, outputs Simple and Compound charts to folder "FebMar", and uses a combination of datetime and historical features.
 
-    python crome_multi.py -j ff/FEAT_VM_1702_1703.csv ff/FEAT_VM_1703_1704.csv -s -c -t net_usage -f day weekday hour minute hist-1D8H hist-1D4H hist-1D2H hist-1D1H hist-1D hist-1D15m hist-1D30m hist-1D45m -o ./FebMar
+```
+python crome_multi.py -j ff/FEAT_VM_1702_1703.csv ff/FEAT_VM_1703_1704.csv -s -c -t net_usage -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m -o ./FebMar
+```
 
-   
 This example trains and predicts multi-VM models through December and January on 'cpu_usage' (the default), but uses only the FIRST FIFTY entities (VMs) found in the files.  Predictions are not charted but are written as JSON files to folder './json'.  Also, the VM_ID column is added as a feature.
 
-    python crome_multi.py -j ff/FEAT_VM_1612_1701.csv ff/FEAT_VM_1701_1702.csv -p -o ./json -v 50 -f day weekday hour minute hist-1D8H hist-1D4H hist-1D2H hist-1D1H hist-1D hist-1D15m hist-1D30m hist-1D45m VM_ID
-
+```
+python crome_multi.py -j ff/FEAT_VM_1612_1701.csv ff/FEAT_VM_1701_1702.csv -p -o ./json -v 50 -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID
+```
 
 This example trains and predicts multi-VM models on target 'net_usage' using only the first 10 VMs in the file FEAT_sampled.csv.  The prediction interval is 7 days.  Compound charts are output.  The ML model "Extra Trees With Scaling" is selected and the number of trees is set to 5.
 
-    python crome_multi.py FEAT_sampled.csv -c -t net_usage -v 10 -o sk_test_et_sc -i et__n_estimators 5 -P 7 -f day weekday hour minute hist-1D8H hist-1D4H hist-1D2H hist-1D1H hist-1D hist-1D15m hist-1D30m hist-1D45m VM_ID -M ET_SC
+```
+python crome_multi.py FEAT_sampled.csv -c -t net_usage -v 10 -o sk_test_et_sc -i et__n_estimators 5 -P 7 -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID -M ET_SC
+```
 
-    
 
 __VARIATIONS__
 
 As you may have guessed by now there are a lot of choices in ML models and their parameters.   One way to zero in on "best practice" is to do a Grid Search.    The basic idea is that all the various options and their values form a grid of possibilities, and to find the ideal choice we try all the combinations.  The script *variations.py* demonstrates one way of doing that.  Essentially each "run_variation" line instantiates a different scikit model with assorted parameters.  Though not an exhaustive search (each run is lengthy), it is meant as example code which, when you get the hang of it, will serve as a gateway to your own experiments.
 
 
-    
+
 ## FILE REFERENCE
 
 
@@ -296,8 +299,6 @@ File | Description
 *ML_arima.py* | Plug-in component for the ARIMA model.  Not available in crome_multi.
 *ML_h2o.py* | Plug-in component for using H2O models.  Not available in crome_multi.
 *preds2charts.py*  |  Builds charts from prediction JSON files.   See the help page (-h) for additional options.
-*push_cognita.py* |  Experimental code to push a model to the Cognita platform.
-*push_multi_cognita.py* |  The multi-VM equivalent of push_cognita.py. 
 *sample_FEAT.py* |  A utility script which allows taking a random sample of the VMs in FEAT*.csv data.
 *showFiles.py* | This tool launches a little web server allowing viewing of local charts and other files via a web browser.
 *StringColumnEncoder.py* | Encode a dataframe's string columns as part of a pipeline.
