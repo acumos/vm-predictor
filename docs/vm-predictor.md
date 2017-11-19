@@ -160,12 +160,22 @@ optional arguments:
 ```
 
 
-# Additional Background
+## Example Usages
+Please consult the [tutorials](tutorials) dirctory for usage examples
+including [training examples](tutorials/lesson1.md)
+and an in-place [web page demonstration](tutorials/lesson2.md).
+
+## Release Notes
+The [release notes](release-notes.md) catalog additions and modifications
+over various version changes.
+
+
+## Additional Background
 Some additional information is provided in [advanced backgrounds tutorial](tutorials/lession3.md)
 for those readers with interest in general machine learning study for this problem.
 
 
-## FILE REFERENCE
+### FILE REFERENCE
 
 File | Description
 -----|------------

@@ -16,14 +16,14 @@ Given a set of FEAT (or other) CSV files containing time-series data, the proces
    entities, they must first be broken up into per-entity files using the
    tool `util/add_FEAT_data.py`.
 
-It may be as simple as this:
+   It may be as simple as this:
 ```
-    python util/add_FEAT_data.py FEAT*.csv -o ./VM_data
+    python vm_predictor/util/add_FEAT_data.py FEAT*.csv -o ./VM_data
 ```
 
-Then processing the separate VM files, with compound charts, could be accomplished by:
+   Then processing the separate VM files, with compound charts, could be accomplished by:
 ```
-    python crome_multi.py  ./VM_data/*.csv -c
+    python vm_predictor/crome_multi.py  ./VM_data/*.csv -c
 ```
 
 3.  Multi-entity simulations can process the FEAT files directly.  However, some care must be taken
@@ -33,7 +33,7 @@ Then processing the separate VM files, with compound charts, could be accomplish
     accomplished with the `join_files` (-j) option:
 
 ```
-    python crome_multi.py -j FEAT*.csv
+    python vm_predictor/crome_multi.py -j FEAT*.csv
 ```
 
 4. Depending on memory constraints, you may not be able to process all of the
@@ -41,18 +41,20 @@ Then processing the separate VM files, with compound charts, could be accomplish
    at a time and collect the results in intermediate JSON files using the
    `write_predictions` (-p) option.
 
-    For example, if the train-predict regimen is 31 days and 1 day, at MINIMUM two month-long files are required.   So to cover a longer time span one could proceed in steps as follows:
+   For example, if the train-predict regimen is 31 days and 1 day, at MINIMUM
+   two month-long files are required.   So to cover a longer time span one
+   could proceed in steps as follows:
 ```
-    python crome_multi.py -p -o ./predict -j FEAT_Feb2017.csv FEAT_Mar2017.csv
-    python crome_multi.py -p -o ./predict -j FEAT_Mar2017.csv FEAT_Apr2017.csv
-    python crome_multi.py -p -o ./predict -j FEAT_Apr2017.csv FEAT_May2017.csv
+    python vm_predictor/crome_multi.py -p -o ./predict -j FEAT_Feb2017.csv FEAT_Mar2017.csv
+    python vm_predictor/crome_multi.py -p -o ./predict -j FEAT_Mar2017.csv FEAT_Apr2017.csv
+    python vm_predictor/crome_multi.py -p -o ./predict -j FEAT_Apr2017.csv FEAT_May2017.csv
 ```
 
 5. The final output of that will be a set of JSON prediction files, one per
    entity/VM covering the entire (4-month) time range. To create charts from
    those JSON files another tool is used:  *preds2charts.py*.   For example:
 ```
-    python preds2charts.py ./predict/*.json
+    python vm_predictor/preds2charts.py ./predict/*.json
 ```
 
 
@@ -102,7 +104,7 @@ with target net_usage, outputs Simple and Compound charts to folder "FebMar",
 and uses a combination of datetime and historical features.
 
 ```
-python crome_multi.py -j ff/FEAT_VM_1702_1703.csv ff/FEAT_VM_1703_1704.csv -s -c -t net_usage -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m -o ./FebMar
+python vm_predictor/crome_multi.py -j ff/FEAT_VM_1702_1703.csv ff/FEAT_VM_1703_1704.csv -s -c -t net_usage -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m -o ./FebMar
 ```
 
 This example trains and predicts multi-VM models through December and January
@@ -111,7 +113,7 @@ found in the files.  Predictions are not charted but are written as JSON files
 to folder './json'.  Also, the VM_ID column is added as a feature.
 
 ```
-python crome_multi.py -j ff/FEAT_VM_1612_1701.csv ff/FEAT_VM_1701_1702.csv -p -o ./json -v 50 -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID
+python vm_predictor/crome_multi.py -j ff/FEAT_VM_1612_1701.csv ff/FEAT_VM_1701_1702.csv -p -o ./json -v 50 -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID
 ```
 
 This example trains and predicts multi-VM models on target 'net_usage' using
@@ -120,7 +122,7 @@ is 7 days.  Compound charts are output.  The ML model "Extra Trees With Scaling"
 is selected and the number of trees is set to 5.
 
 ```
-python crome_multi.py FEAT_sampled.csv -c -t net_usage -v 10 -o sk_test_et_sc -i et__n_estimators 5 -P 7 -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID -M ET_SC
+python vm_predictor/crome_multi.py FEAT_sampled.csv -c -t net_usage -v 10 -o sk_test_et_sc -i et__n_estimators 5 -P 7 -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID -M ET_SC
 ```
 
 
