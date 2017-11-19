@@ -7,5 +7,6 @@ a given timestamp based on the time and historical context.
 * Tutorials
     * [Deployment and Running](docs/tutorials/lesson1.md),
     * [Example Web Application](docs/tutorials/lesson2.md)
+    * [Advanced Machine Learning Discussion](docs/tutorials/lesson3.md)
 
 

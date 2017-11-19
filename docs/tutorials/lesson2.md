@@ -1,6 +1,7 @@
 # Web Demo
 This web page visualizes reports for policy optimization of hosted
- customer VMs.
+customer VMs.  Interested readers in more background for the exploration of
+this task can continue to the [next lesson](lesson3.md).
 
 ## Running Example
 This demonstration web page shows plots of predicted and historical resource
