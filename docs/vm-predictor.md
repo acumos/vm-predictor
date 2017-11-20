@@ -86,7 +86,7 @@ preprocessing, and all subseqent computations use the re-sampled values.
 
 ## CHARTS
 
-`crome_multi.py` and its helper file `preds2charts.py` build charts displaying
+crome_multi.py and its helper file preds2charts.py build charts displaying
 the predicted target value vs. the actual value through the entire time
 range contained in the input file(s).
 
