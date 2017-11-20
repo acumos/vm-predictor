@@ -78,10 +78,10 @@ server in the main `acumos` package to simulate backend testing in these example
 
 ```
 # training + dump for a multi-vm model in a directory (raw data)
-./bin/run_local.sh multi -t cpu_usage -o data/multi_feature -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID -c -P 2 -d model_multi data/multi/raw-feature.csv.gz
+python vm_predictor/crome_multi.py -t cpu_usage -o data/multi_feature -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID -c -P 2 -d model_multi data/multi/raw-feature.csv.gz
 
 # training + push for a multi-vm model in a directory (raw data) -- note, asssumes localhost testing server, user:foo, pass:bar
-./bin/run_local.sh multi -t cpu_usage -o data/multi_feature -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID -c -P 2 data/multi/raw-feature.csv.gz -a "http://localhost:8887/v2/upload" -A "http://localhost:8887/v2/auth"
+python vm_predictor/crome_multi.py -t cpu_usage -o data/multi_feature -f day weekday hour minute hist_1D8H hist_1D4H hist_1D2H hist_1D1H hist_1D hist_1D15m hist_1D30m hist_1D45m VM_ID -c -P 2 data/multi/raw-feature.csv.gz -a "http://localhost:8887/v2/upload" -A "http://localhost:8887/v2/auth"
 ```
 
 * single VM training, preprocessed data - an example where a model is trained
@@ -90,10 +90,10 @@ server in the main `acumos` package to simulate backend testing in these example
 
 ```
 # training + dump for a single model in a directory (raw data)
-./bin/run_local.sh single -t cpu_usage -d single_model -f day weekday hour minute hist_1D VM_ID -d model_single data/single/train.csv
+python vm_predictor/crome.py -t cpu_usage -d single_model -f day weekday hour minute hist_1D VM_ID -d model_single data/single/train.csv
 
 # training + push for a single model in a directory (raw data) -- note, asssumes localhost testing server, user:foo, pass:bar
-./bin/run_local.sh single -t cpu_usage -f day weekday hour minute hist_1D VM_ID -d model_single data/single/train.csv -a "http://localhost:8887/v2/upload" -A "http://localhost:8887/v2/auth"
+python vm_predictor/crome.py -t cpu_usage -f day weekday hour minute hist_1D VM_ID -d model_single data/single/train.csv -a "http://localhost:8887/v2/upload" -A "http://localhost:8887/v2/auth"
 ```
 
 
