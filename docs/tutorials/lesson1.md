@@ -90,7 +90,7 @@ python vm_predictor/crome_multi.py -t cpu_usage -o data/multi_feature -f day wee
 
 ```
 # training + dump for a single model in a directory (raw data)
-python vm_predictor/crome.py -t cpu_usage -d single_model -f day weekday hour minute hist_1D VM_ID -d model_single data/single/train.csv
+python vm_predictor/crome.py -t cpu_usage -f day weekday hour minute hist_1D VM_ID -d model_single data/single/train.csv
 
 # training + push for a single model in a directory (raw data) -- note, asssumes localhost testing server, user:foo, pass:bar
 python vm_predictor/crome.py -t cpu_usage -f day weekday hour minute hist_1D VM_ID -d model_single data/single/train.csv -a "http://localhost:8887/v2/upload" -A "http://localhost:8887/v2/auth"

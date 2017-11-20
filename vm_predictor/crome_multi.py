@@ -9,10 +9,9 @@ from sklearn.preprocessing import StandardScaler
 
 from sklearn.pipeline import Pipeline
 
+import os, sys
 from os import makedirs
 from os.path import join, basename, exists
-
-from vm_predictor.StringColumnEncoder import StringColumnEncoder
 
 import matplotlib
 matplotlib.use("Agg")
@@ -477,6 +476,7 @@ def trim_columns(df):
 
 
 def main():
+    from vm_predictor.StringColumnEncoder import StringColumnEncoder
     import argparse
     parser = argparse.ArgumentParser(description="CROME training and testing", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-t', '--target', help='target prediction column', default='cpu_usage')
@@ -561,4 +561,8 @@ def main():
 
 
 if __name__ == "__main__":
+    # patch the path to include this object
+    pathRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if pathRoot not in sys.path:
+        sys.path.append(pathRoot)
     main()
