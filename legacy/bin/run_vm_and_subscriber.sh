@@ -1,0 +1,10 @@
+#python ../../vm_predictor/subscriber_models2.py vnf_bandwidth_flt_timecols.csv usage SUBSCRIBER_NAME
+#python ../../vm_predictor/subscriber_models2.py vnf_bandwidth_flt_timecols.csv usage VM_ID
+#python ../../vm_predictor/subscriber_models2.py vnf_bandwidth_flt_timecols.csv received SUBSCRIBER_NAME
+python ../../vm_predictor/subscriber_models2.py vnf_bandwidth_flt_timecols.csv received VM_ID
+python ../../vm_predictor/subscriber_models2.py vnf_bandwidth_flt_timecols.csv transmitted SUBSCRIBER_NAME
+python ../../vm_predictor/subscriber_models2.py vnf_bandwidth_flt_timecols.csv transmitted VM_ID
+python ../../vm_predictor/subscriber_models2.py vnf_cpumem_flt_timecols.csv cpu_usage SUBSCRIBER_NAME
+python ../../vm_predictor/subscriber_models2.py vnf_cpumem_flt_timecols.csv cpu_usage VM_ID
+python ../../vm_predictor/subscriber_models2.py vnf_cpumem_flt_timecols.csv mem_usage SUBSCRIBER_NAME
+python ../../vm_predictor/subscriber_models2.py vnf_cpumem_flt_timecols.csv mem_usage VM_ID
