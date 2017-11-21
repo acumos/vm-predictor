@@ -1,30 +1,49 @@
+# -*- coding: utf-8 -*-
+# ================================================================================
+# ACUMOS
+# ================================================================================
+# Copyright © 2017 AT&T Intellectual Property & Tech Mahindra. All rights reserved.
+# ================================================================================
+# This Acumos software file is distributed by AT&T and Tech Mahindra
+# under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# This file is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ================================================================================
+
 import os
 import pandas
 import h2o
 from h2o.estimators.random_forest import H2ORandomForestEstimator
 
-import matplotlib 
+import matplotlib
 matplotlib.use ("Agg")
 import matplotlib.pyplot as plt
 
 
 def train_random_forest(file_path, target_col):
     print "Building model..."
-    
+
     h2o.init()
     rf_model = H2ORandomForestEstimator (response_column=target_col, ntrees=20)
     print "  importing", file_path
-    mainframe = h2o.import_file(path=file_path)    
+    mainframe = h2o.import_file(path=file_path)
     train_frame, test_frame = mainframe.split_frame([0.50])
-    
+
     cols = [u'SUBSCRIBER_NAME', u'month', u'day', u'weekday', u'hour', u'minute']
     print "  training..."
     res = rf_model.train (x=cols, y=target_col, training_frame=train_frame)
-    
+
     print "  predicting..."
     preds = rf_model.predict(test_frame)
-    
-    predicted = preds.as_data_frame()    
+
+    predicted = preds.as_data_frame()
     actual = test_frame.as_data_frame()
     xx = range(len(actual))
     fig = plt.figure()
@@ -41,4 +60,3 @@ def train_random_forest(file_path, target_col):
 
 if __name__ == "__main__":
     train_random_forest("ARCHER_WELL_8310006436036.csv", "usage")
-    

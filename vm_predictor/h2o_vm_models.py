@@ -1,17 +1,36 @@
+# -*- coding: utf-8 -*-
+# ================================================================================
+# ACUMOS
+# ================================================================================
+# Copyright © 2017 AT&T Intellectual Property & Tech Mahindra. All rights reserved.
+# ================================================================================
+# This Acumos software file is distributed by AT&T and Tech Mahindra
+# under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# This file is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ================================================================================
+
 import os
 import pandas as pd
 import h2o
 from h2o.estimators.random_forest import H2ORandomForestEstimator
 
-import matplotlib 
+import matplotlib
 matplotlib.use ("Agg")
 import matplotlib.pyplot as plt
 import datetime
 from matplotlib.dates import YearLocator, MonthLocator, DayLocator, HourLocator, DateFormatter
 
-    
-# derived from calc_AAE.py    
-def calc_AAE (predict_h2o, actual_h2o, target_col):           
+
+# derived from calc_AAE.py
+def calc_AAE (predict_h2o, actual_h2o, target_col):
     # we must convert to pandas first to preserve NAN entries
     actual = actual_h2o.as_data_frame()
     actual = actual[target_col]
@@ -22,23 +41,23 @@ def calc_AAE (predict_h2o, actual_h2o, target_col):
     denominator = predicted.combine(actual, max)
     aae = numerator / denominator
     return aae.mean()
-    
 
-    
+
+
 def train_and_test(train_path, test_path, target_col):
     print ">> Building model for target ", target_col
-    
+
     h2o.init()
     rf_model = H2ORandomForestEstimator (response_column=target_col, ntrees=20)
     print ">>   importing:", train_path
-    train_frame = h2o.import_file(path=train_path)    
+    train_frame = h2o.import_file(path=train_path)
     print ">>   importing:", test_path
-    test_frame = h2o.import_file(path=test_path)    
-    
+    test_frame = h2o.import_file(path=test_path)
+
     cols = [u'month', u'day', u'weekday', u'hour', u'minute']
     print ">>   training..."
     res = rf_model.train (x=cols, y=target_col, training_frame=train_frame)
-    
+
     print ">>   predicting..."
     preds = rf_model.predict(test_frame)
 
@@ -46,8 +65,8 @@ def train_and_test(train_path, test_path, target_col):
     print ">>   calculating AAE..."
     aae = calc_AAE (preds, test_frame, target_col)
     print ">>   AAE=", aae
-    
-    predicted = preds.as_data_frame()    
+
+    predicted = preds.as_data_frame()
     actual = test_frame.as_data_frame()
 
     return predicted, actual, aae
@@ -58,8 +77,8 @@ def draw_chart (chart_title, predicted, actual, target_col, png_filename):
     fig = plt.figure(figsize=(11,8))
     ax = fig.add_subplot(111)
     dates = xx.apply(lambda j:datetime.datetime.fromtimestamp(j))
-    ordinals = [matplotlib.dates.date2num(d) for d in dates] 
-    
+    ordinals = [matplotlib.dates.date2num(d) for d in dates]
+
     ax.plot_date(ordinals,actual[target_col], 'b-', label='Actual')
     ax.plot_date(ordinals,predicted['predict'],'r-', label='Predicted')
 
@@ -69,12 +88,12 @@ def draw_chart (chart_title, predicted, actual, target_col, png_filename):
     ax.autoscale_view()
     ax.grid(True)
     fig.autofmt_xdate()
-    
+
     legend = ax.legend(loc='upper right', shadow=True)
     plt.title (chart_title)
     fig.savefig(png_filename)
     print ">>   wrote: ", png_filename
-    
+
 
 
 def create_filename(png_dir, model_name, subscriber, vmachine):
@@ -98,7 +117,7 @@ def check_valid_target (df, target):
             if valid > 1:
                 return True
     return False
-        
+
 
 
 def get_subscriber (df):
@@ -107,9 +126,9 @@ def get_subscriber (df):
     for s in subs:
         subname = subname + s
     return subname
-   
-        
-    
+
+
+
 def process_vmachine(df, vmachine, target, png_base_path):
     #import pdb; pdb.set_trace()
     if not check_valid_target (df, target):
@@ -130,9 +149,9 @@ def process_vmachine(df, vmachine, target, png_base_path):
             draw_chart (title, predictions, actual, target, fname)
             print ">>   done!"
 
-        
-        
-if __name__ == "__main__":        
+
+
+if __name__ == "__main__":
     import sys
 
     filename = sys.argv[1]
@@ -153,5 +172,5 @@ if __name__ == "__main__":
         #fname = vmachine + ".csv"
         df2 = df[df['VM_ID']==vm]
         process_vmachine (df2, vm, target, png_path)
-        
+
 
