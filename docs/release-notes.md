@@ -1,5 +1,8 @@
 # Release Notes
 ## 0.8
+### 0.8.2
+* Update requirements for matplotlib
+
 ### 0.8.1
 * Documentation and package update to use install instructions instead of installing
   this package directly into a user's environment.

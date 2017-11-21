@@ -164,6 +164,7 @@ class CromeProcessor(object):
         from acumos.modeling import Model, List, create_namedtuple
         from acumos.session import Requirements
         from os import path
+        import sklearn
 
         print(">> %s:  Loading raw features, training model" % CSV_filename)
         model = self.build_model_from_CSV(CSV_filename, is_raw_data=is_raw_data)
@@ -179,7 +180,8 @@ class CromeProcessor(object):
 
         # compute path of this package to add it as a dependency
         package_path = path.dirname(path.realpath(__file__))
-        return Model(classify=predict_metric), Requirements(packages=[package_path])
+        return Model(classify=predict_metric), Requirements(packages=[package_path],
+                                                            reqs=[matplotlib, sklearn, np, pd])
 
     def push_model(self, CSV_filename, push_api, auth_api, is_raw_data=False):
         from acumos.session import AcumosSession
