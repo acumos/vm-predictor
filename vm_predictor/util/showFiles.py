@@ -1,3 +1,22 @@
+# -*- coding: utf-8 -*-
+# ================================================================================
+# ACUMOS
+# ================================================================================
+# Copyright © 2017 AT&T Intellectual Property & Tech Mahindra. All rights reserved.
+# ================================================================================
+# This Acumos software file is distributed by AT&T and Tech Mahindra
+# under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# This file is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ================================================================================
+
 from __future__ import print_function
 
 import cherrypy
@@ -25,7 +44,7 @@ def thumbCleaner(dir):
             print ("thumbCleaner starting.")
             thumbs = dirList.cdateSorted(dir + "/*.jpg")
             for ctime, name, sz in thumbs:
-                if now - ctime > maxlife:      
+                if now - ctime > maxlife:
                     print ("thumbCleaner: expired -- ", name)
                     try:                    # because there may be multiple thumbCleaners
                         os.remove(name)
@@ -62,7 +81,7 @@ def getMovieFrame (srcVid):
         processCommand(commandText)
         processCommand("mv %s %s" % (tmpname, cachename))
     return cachename
-    
+
 
 def readCSV (filename, sep=','):
     import csv
@@ -72,21 +91,21 @@ def readCSV (filename, sep=','):
     else:
         read = csv.reader(fp)
     return [row for row in read]
-    
-    
+
+
 
 class HelloWorld(object):
     def index(self):
         return "Hello World!"
     index.exposed = True
 
-   
+
     def fetch(self, file):
         f = open(file, "rb")
         return f.read()
     fetch.exposed = True
 
-    
+
     def text(self, file):
         f = open(file, "r")
         data = f.read()
@@ -100,7 +119,7 @@ class HelloWorld(object):
         return HTM
     text.exposed = True
 
-    
+
     def pretty_csv(self, file, sep=','):
         table = readCSV (file, sep)
         HTM = '<!DOCTYPE html>\n'
@@ -114,7 +133,7 @@ class HelloWorld(object):
         HTM += '</table>'
         return HTM
     pretty_csv.exposed = True
-        
+
 
     def code(self, file):
         f = open(file, "r")
@@ -131,14 +150,14 @@ class HelloWorld(object):
         return HTM
     code.exposed = True
 
-    
+
     def thumb(self, mov):
         tname = getMovieFrame(mov)
         f = open(tname, "r")
         return f.read()
     thumb.exposed = True
 
-    
+
     def show(self, file):
         HTM = '<!DOCTYPE html>\n'
         HTM += '<html>\n'
@@ -146,8 +165,8 @@ class HelloWorld(object):
         HTM += '<img src=/fetch?file=%s>' % file
         return HTM
     show.exposed = True
-    
-    
+
+
     def testing(self):
         HTM = '<!DOCTYPE html>\n'
         HTM += '<html>\n'
@@ -156,7 +175,7 @@ class HelloWorld(object):
         return HTM
     testing.exposed = True
 
-    
+
     def browse(self, dir="*", width="160", height="120"):
         import glob
 
@@ -164,7 +183,7 @@ class HelloWorld(object):
         dir = dir.strip()
         if dir[0] != '.' and dir[0] != '/':
             dir = "./" + dir
-            
+
         # separate fixed part from wild part (could be "./*/*")
         sdirs = dir.split("/")
         firstwild = -1
@@ -181,11 +200,11 @@ class HelloWorld(object):
             dir += "*"
         fix = "/".join(sdirs[0:firstwild])
         fixed_part = len(fix) + 1
-        
+
         listing = sorted(glob.glob(dir))
         HTM = DivHead
         HTM += '<body>\n'
-        for path in listing:           
+        for path in listing:
             fname = path[fixed_part:]
             parts = fname.split('.')
             if os.path.isdir(path):
@@ -206,9 +225,9 @@ class HelloWorld(object):
         HTM += '</html>\n'
         return HTM
     browse.exposed = True
-    
 
-    
+
+
 #DocumentIcon = 'https://cdn2.iconfinder.com/data/icons/windows-8-metro-style/512/document.png'
 #DocumentIcon = 'http://www.iconshock.com/img_jpg/LUMINA/general/jpg/256/document_icon.jpg'
 #DocumentIcon = 'http://www.vectors4all.net/preview/ronoaldo-new-document-clip-art.jpg'
@@ -221,7 +240,7 @@ CodeIcon = 'https://www.softlanding.com/updates/concrete5.6.3.4/concrete/images/
 CSVIcon = 'http://www.colabrativ.com/images/OxygenTeam_speadsheet+CSV_128x128.png'
 TableIcon = 'http://www.rocketroute.com/wp-content/uploads/mimetypes_office_spreadsheet.png'
 
-    
+
 DivHead = '''
 <!DOCTYPE html>
 <html>
@@ -235,7 +254,7 @@ div.img {
     width: auto;
     float: left;
     text-align: center;
-}	
+}
 
 div.img img {
     display: inline;
@@ -257,30 +276,30 @@ div.desc {
 </style>
 </head>
 '''
-    
-    
-    
-    
-    
-cleanThread = None    
-    
+
+
+
+
+
+cleanThread = None
+
 def stopAll ():
     global Running
     Running = False
 stopAll.priority = 10
-    
-    
-if __name__ == "__main__":    
+
+
+if __name__ == "__main__":
     import threading
     cleanThread = threading.Thread(target = thumbCleaner, args = (thumbBase,))
     cleanThread.start()
-    
-    
+
+
     cherrypy.engine.subscribe('stop', stopAll)
-    
+
     cherrypy.server.socket_host = "0.0.0.0"
     cherrypy.server.socket_port = 8084
-        
+
     cherrypy.quickstart(HelloWorld())
 
 

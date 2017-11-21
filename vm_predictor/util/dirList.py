@@ -1,10 +1,29 @@
+# -*- coding: utf-8 -*-
+# ================================================================================
+# ACUMOS
+# ================================================================================
+# Copyright © 2017 AT&T Intellectual Property & Tech Mahindra. All rights reserved.
+# ================================================================================
+# This Acumos software file is distributed by AT&T and Tech Mahindra
+# under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# This file is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ================================================================================
+
 from __future__ import print_function
 
 
 from stat import S_ISREG, ST_CTIME, ST_MODE, ST_SIZE, ST_MTIME
 import os, sys, time
 
-if __name__ == "__main__": 
+if __name__ == "__main__":
     # path to the directory (relative or absolute)
     dirpath = sys.argv[1] if len(sys.argv) == 2 else r'.'
 
@@ -14,14 +33,14 @@ if __name__ == "__main__":
 
     # leave only regular files, insert creation date
     entries = ((stat[ST_CTIME], path)  for stat, path in entries if S_ISREG(stat[ST_MODE]))
-    #NOTE: on Windows `ST_CTIME` is a creation date 
+    #NOTE: on Windows `ST_CTIME` is a creation date
     #  but on Unix it could be something else
     #NOTE: use `ST_MTIME` to sort by a modification date
 
     for cdate, path in sorted(entries):
         print (time.ctime(cdate), os.path.basename(path))
 
-        
+
 
 import glob
 def cdateSorted (patt):
@@ -32,7 +51,7 @@ def cdateSorted (patt):
     # leave only regular files, insert creation date
     #entries = ((stat[ST_CTIME], path, stat[ST_SIZE])  for stat, path in entries if S_ISREG(stat[ST_MODE]))
     entries = ((stat[ST_MTIME], path, stat[ST_SIZE])  for stat, path in entries if S_ISREG(stat[ST_MODE]))
-    #NOTE: on Windows `ST_CTIME` is a creation date 
+    #NOTE: on Windows `ST_CTIME` is a creation date
     #  but on Unix it could be something else
     #NOTE: use `ST_MTIME` to sort by a modification date
 
@@ -48,7 +67,7 @@ def mdateFltSorted (patt):
     # leave only regular files, insert creation date
     #entries = ((stat[ST_CTIME], path, stat[ST_SIZE])  for stat, path in entries if S_ISREG(stat[ST_MODE]))
     entries = ((os.path.getmtime(path), path, stat[ST_SIZE])  for stat, path in entries if S_ISREG(stat[ST_MODE]))
-    #NOTE: on Windows `ST_CTIME` is a creation date 
+    #NOTE: on Windows `ST_CTIME` is a creation date
     #  but on Unix it could be something else
     #NOTE: use `ST_MTIME` to sort by a modification date
 
@@ -89,11 +108,10 @@ def namedateSorted (patt):
 
         except Exception as e:
             print ("Exception encountered for path", path, ":", e)
-            
+
     return sorted(entries)
 
 
 
 
 
-    

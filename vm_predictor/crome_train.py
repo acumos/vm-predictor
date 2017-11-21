@@ -1,3 +1,22 @@
+# -*- coding: utf-8 -*-
+# ================================================================================
+# ACUMOS
+# ================================================================================
+# Copyright © 2017 AT&T Intellectual Property & Tech Mahindra. All rights reserved.
+# ================================================================================
+# This Acumos software file is distributed by AT&T and Tech Mahindra
+# under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# This file is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ================================================================================
+
 # This is run within the predictor
 import os
 import h2o
@@ -40,7 +59,7 @@ def tf_idf(corpus):
     model = vectorizer.fit_transform(corpus)
     return (vectorizer, model)
 
-    
+
 # this won't work:  TOO SLOW
 def calc_avg_abs_err (predicted, actual):
     total = 0.0
@@ -64,9 +83,9 @@ def calc_avg_abs_err (predicted, actual):
     mean_aae = total / count
     return mean_aae
 
-    
-# derived from calc_AAE.py    
-def calc_AAE (predict_h2o, actual_h2o, target_col):           
+
+# derived from calc_AAE.py
+def calc_AAE (predict_h2o, actual_h2o, target_col):
     # we must convert to pandas first to preserve NAN entries
     actual = actual_h2o.as_data_frame()
     actual = actual[target_col]
@@ -77,25 +96,25 @@ def calc_AAE (predict_h2o, actual_h2o, target_col):
     denominator = predicted.combine(actual, max)
     aae = numerator / denominator
     return aae.mean()
-    
-    
+
+
 
 def train_random_forest(file_path, target_col):
     print "Building model..."
-    
+
     h2o.init()
     rf_model = H2ORandomForestEstimator (response_column=target_col, ntrees=20)
     print "  importing", file_path
-    mainframe = h2o.import_file(path=file_path)    
-    #mainframe = h2o.import_file(path="http://vision5.research.att.com:8001/vnf_bandwidth_timecols.csv")    
+    mainframe = h2o.import_file(path=file_path)
+    #mainframe = h2o.import_file(path="http://vision5.research.att.com:8001/vnf_bandwidth_timecols.csv")
     #train_frame, validate_frame, test_frame = mainframe.split_frame([0.60, 0.20])
     train_frame, test_frame = mainframe.split_frame([0.50])
-    
+
     cols = [u'SUBSCRIBER_NAME', u'month', u'day', u'weekday', u'hour', u'minute']
     print "  training..."
     #res = rf_model.train (x=cols, y=target_col, training_frame=train_frame, validation_frame=validate_frame)
     res = rf_model.train (x=cols, y=target_col, training_frame=train_frame)
-    
+
     print "  predicting..."
     preds = rf_model.predict(test_frame)
 
@@ -105,8 +124,8 @@ def train_random_forest(file_path, target_col):
     aae = calc_AAE (preds, test_frame, target_col)
     print "AAE=", aae
     print "done!"
-    
-    
+
+
 #
 # Main entry point. Accepts parameters
 #  for example:
@@ -118,7 +137,7 @@ if __name__ == '__main__':
     parser.add_argument('--models-dir', help = 'Directory to save generated models', type=str, default = MODELS_DESTINATION_DIR)
     parser.add_argument('--verbose', help = 'More detailed output', dest='verbose', action='store_true')
     parser.add_argument('--target', help = 'Target column name', type=str, dest='target', default = 'usage')
-    
+
     cfg = parser.parse_args()
     train_random_forest(cfg.file, cfg.target)
 
