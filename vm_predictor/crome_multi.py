@@ -75,6 +75,7 @@ class CromeProcessor(object):
         from acumos.modeling import Model, List, create_namedtuple
         from acumos.session import Requirements
         from os import path
+        import sklearn
 
         # Note:  all files in the list will be appended
         master_df, VM_list = self.preprocess_files(file_list)
@@ -93,7 +94,8 @@ class CromeProcessor(object):
 
         # compute path of this package to add it as a dependency
         package_path = path.dirname(path.realpath(__file__))
-        return Model(classify=predict_metric), Requirements(packages=[package_path])
+        return Model(classify=predict_metric), Requirements(packages=[package_path],
+                                                            reqs=[matplotlib, sklearn, np, pd])
 
     def push_model(self, CSV_filenames, push_api, auth_api):
         from acumos.session import AcumosSession
