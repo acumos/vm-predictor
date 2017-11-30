@@ -19,6 +19,18 @@ train/predict regimen over an extended period of time.   It can help set up
 scenarios such as:  "let's train on 31 days of data and predict usage for the
 following day, repeated every day for 6 months".
 
+## Package dependencies
+
+Package dependencies for the core code and testing have been flattened into a single file 
+for convenience. Instead of installing this package into your your local 
+environment, execute the command below.
+```
+pip install -r requirments.txt
+```
+or, if you want ot install dependencies with a classic package place holder...
+```
+pip install . -v
+```
 
 
 ## DATA
