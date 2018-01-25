@@ -16,7 +16,7 @@ In future versions, these plotted graphs will be populated by a running
 instance or by retrieving recent historical predictions and values from
 a live database.
 
-* ![example web application for resource prediction](assets/example_running.jpg "Example web application for resource prediction")
+* ![example web application for resource prediction](example_running.jpg "Example web application for resource prediction")
 
 ## Web Technologies
 For interactions, this page uses open-source web technologies like
