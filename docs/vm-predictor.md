@@ -213,3 +213,7 @@ File | Description
 *StringColumnEncoder.py* | Encode a dataframe's string columns as part of a pipeline.
 *train_test.py* | Example code demonstrating training and testing from CSV files.
 *variations.py* | Utility program which can run a "grid search" of model variations to find the best parameters.  For most authoratative results should be used with a FEAT file containing a random sampling of VMs.  Meant as a starting point for further experiments.  Note:  long run time.
+
+# Metadata Examples
+* [example catalog image](catalog_image.png) 
+
