@@ -26,7 +26,7 @@ requirement_list = [ line for line in open(os.path.join(setup_dir,'requirements.
 setup(
     name='vm_predictor',
     version=__version__,
-    packages=[],
+    packages=find_packages(),  # NOTE - THIS SHOULD NOT BE AN INSTALLED PACKAGE!    
     author="Michael Tinnemeier",
     author_email="ezavesky@research.att.com",
     description=("VM resource predictor based on historical data and context"),
