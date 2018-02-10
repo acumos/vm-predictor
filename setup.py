@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
-from setuptools import setup   # , find_packages
+from setuptools import setup, find_packages
 from setuptools.command.install import install
 
 # warning (if run in verbose mode) about installing this object
@@ -20,13 +20,13 @@ with open(os.path.join(setup_dir, 'vm_predictor', '_version.py')) as file:
 
 
 # read requirements list from supplementary file in this repo
-requirement_list = [ line for line in open(os.path.join(setup_dir,'requirements.txt')) if line and line[0] != '#' ]
+# requirement_list = [ line for line in open(os.path.join(setup_dir,'requirements.txt')) if line and line[0] != '#' ]
 
 
 setup(
     name='vm_predictor',
     version=__version__,
-    packages=[],
+    packages=find_packages(),  # NOTE - THIS SHOULD NOT BE AN INSTALLED PACKAGE!
     author="Michael Tinnemeier",
     author_email="ezavesky@research.att.com",
     description=("VM resource predictor based on historical data and context"),
@@ -38,7 +38,7 @@ setup(
     [console_scripts]
     """,
     # setup_requires=['pytest-runner'],
-    install_requires=requirement_list,
+    install_requires=[], #requirement_list,
     tests_require=[],
     cmdclass={'install': new_install},
     include_package_data=True,
