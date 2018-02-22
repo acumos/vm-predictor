@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9fc56d35_5b94ec99",
+        "filename": "tox.ini",
+        "patchSetId": 14
+      },
+      "lineNbr": 6,
+      "author": {
+        "id": 94
+      },
+      "writtenOn": "2018-02-22T19:27:19Z",
+      "side": 1,
+      "message": "If this patch is still valid, please replace the cognita URLs with acumos ones",
+      "range": {
+        "startLine": 6,
+        "startChar": 42,
+        "endLine": 6,
+        "endChar": 183
+      },
+      "revId": "5e4028159d7dcb6802b67b83da7e596c1eb8e6ba",
+      "serverId": "655300a2-7a56-4504-9153-881edd907bea",
+      "unresolved": false
+    }
+  ]
+}
