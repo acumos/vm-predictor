@@ -6,6 +6,29 @@ to see how to utilize these models with a simple demo API server.
 
 
 
+## DATA
+
+Data files can be large, and CROME's so-called 'FEAT' files are no exception.
+(Note:   Another set of tools captures the raw data to create the FEAT files.
+The workings of those tools are beyond the scope of this document.)
+
+The FEAT data may be delimited by month.   For example, `data/multi/raw-feature.csv.gz`
+contains data from February 2017 through the beginning of March 2017.  The data is
+"raw" in that it needs a substantial amount of preprocessing.   That's obvious just
+by looking at the original column names:
+
+```
+    [' cpu        _ usage       ', ' cpu        _ usagemhz    ', ' mem        _ active      ', ' mem        _ consumed    ', ' mem        _ granted     ', ' mem        _ usage       ', ' net        _ received    ', ' net        _ transmitted ', ' net        _ usage       ', 'DATETIMEUTC', 'DATEUTC', 'GLOBAL_CUSTOMER_ID', 'SUBSCRIBER_NAME', 'Unnamed: 0', 'VM_ID']
+```
+
+And many of the rows may require additional formatting, such as removing
+padding before and after strings.
+
+The FEAT files are typically over 1 GB in size.  That makes processing them
+unwieldy, especially when running simulations which span a large segment of
+time (i.e. many months).
+
+
 ## Data Processing
 
 Given a set of FEAT (or other) CSV files containing time-series data, the process is fairly simple.
@@ -56,6 +79,71 @@ Given a set of FEAT (or other) CSV files containing time-series data, the proces
 ```
     python vm_predictor/preds2charts.py ./predict/*.json
 ```
+
+
+
+## TOOLS
+
+The workhorse script for processing the FEAT (e.g.) files is *crome_multi.py*.
+It does everything from reformatting columns to training models to building charts.
+
+But the essence of crome_multi.py is to implement a train/predict regimen on
+a given file using the concept of a "sliding window".
+
+Basically crome_multi.py sees the incoming data as a single time series,
+sorted from earliest date to latest;  in fact it pre-processes incoming CSV
+files to conform to that view.  It executes the indicated train/predict regimen
+across the entire time series by:  (A) training a model using a specified
+training duration, e.g. 31 days;  and (B) using that same model to predict
+data for the specified prediction duration, e.g. 1 day, which
+*immediately follows* the training data.  This window is then advanced one
+prediction period, and the cycle repeats until the data is exhausted.
+
+For example, given data from January to December and current defaults of a
+31-day training period and a 1-day prediction period, crome_multi.py will
+first build a model using data from January 1st through January 31st, and make
+predictions for February 1st.  That gives one day's worth of data.  Then it
+advances one day (the prediction period) and builds a new model with data from
+January 2nd to February 1st, and predicts February 2nd.  That's the second
+day's data.  And so on, until predictions are made through December 31st.
+
+The results for the entire time period are saved as charts and/or prediction
+data.   See below for more details.
+
+
+## SAMPLING
+
+Ordinarily the rows in the CSV data files represent data sampled at a certain
+frequency, such as every 5 minutes.  crome_multi.py has the ability to
+resample this to another value, averaging all the values in that interval.
+The default setting of *15 minutes* may be changed using the '-S' command
+line option.   (Obviously you can only use values that are a multiple of the
+original sample interval.)   Note that this value is enforced early during
+preprocessing, and all subseqent computations use the re-sampled values.
+
+
+## CHARTS
+
+crome_multi.py and its helper file preds2charts.py build charts displaying
+the predicted target value vs. the actual value through the entire time
+range contained in the input file(s).
+
+There are six different individual charts (-s option), and one compound
+chart (-c option) currently available.
+
+Individual charts are:
+
+* "Original":  displays the original data in the working sample size (-S option).
+* "Percentile_95":  displays the daily 95th percentile of the target value.
+* "STD":  displays the daily standard deviation of the target.
+* "Variance":  displays the daily variance of the target.
+* "Busy_Hour_4H":  displays the daily busiest hour from 0-23 (4-hour window).
+* "Busy_Avg_4H":  displays the daily mean of the target during the busy hour.
+
+As written, the -s option, when present, will write all 6 chart types, but
+could easily be enhanced to select specific ones.
+
+The compound chart is simply all 6 simple charts displayed on one page.
 
 
 ## Model Deployment

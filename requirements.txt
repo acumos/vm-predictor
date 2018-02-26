@@ -8,6 +8,6 @@ pandas
 matplotlib
 
 # testing packages
-# pytest
+pytest
 # pexpect
 # connexion
