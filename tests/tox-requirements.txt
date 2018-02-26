@@ -1,0 +1,6 @@
+numpy
+sklearn
+pandas
+matplotlib
+pytest
+pytest-rerunfailures
