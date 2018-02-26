@@ -19,7 +19,7 @@
 
 from __future__ import print_function
 
-from crome_multi import CromeProcessor
+from .crome_multi import CromeProcessor
 
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.ensemble import ExtraTreesRegressor
