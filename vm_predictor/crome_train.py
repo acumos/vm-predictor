@@ -133,7 +133,7 @@ def train_random_forest(file_path, target_col):
 #
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = "CROME model builder & tester")
-    parser.add_argument('--datafile', help = 'Input data file', type=str, dest='file', default = 'http://vision5.research.att.com:8001/vnf_bandwidth_timecols.csv')
+    parser.add_argument('--datafile', help = 'Input data file', type=str, dest='file', default = 'http://localhost:8001/vnf_bandwidth_timecols.csv')
     parser.add_argument('--models-dir', help = 'Directory to save generated models', type=str, default = MODELS_DESTINATION_DIR)
     parser.add_argument('--verbose', help = 'More detailed output', dest='verbose', action='store_true')
     parser.add_argument('--target', help = 'Target column name', type=str, dest='target', default = 'usage')
