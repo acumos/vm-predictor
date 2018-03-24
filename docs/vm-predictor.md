@@ -18,7 +18,7 @@
 .. ===============LICENSE_END=========================================================
 -->
 
-# vm-predictor
+# VM Predictor Guide
 An example model that can predict resource utilization at a given timestamp
 based on the time and historical context.
 

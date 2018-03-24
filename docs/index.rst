@@ -15,13 +15,15 @@
 .. See the License for the specific language governing permissions and
 .. limitations under the License.
 .. ===============LICENSE_END=========================================================
-vm-predictor
--------------------
+
+============
+VM Predictor
+============
 
 .. toctree::
        :maxdepth: 2
 
-       vm-predictor
        release-notes
+       vm-predictor
        tutorials/index
 
