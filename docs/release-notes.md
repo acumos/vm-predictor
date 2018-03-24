@@ -18,7 +18,7 @@
 .. ===============LICENSE_END=========================================================
 -->
 
-# Release Notes
+# VM Predictor Release Notes
 ## 0.8
 ### 0.8.2
 * Update requirements for matplotlib
