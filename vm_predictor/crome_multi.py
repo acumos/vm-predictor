@@ -32,11 +32,6 @@ import os, sys
 from os import makedirs
 from os.path import join, basename, exists
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-from matplotlib.dates import DayLocator, HourLocator, DateFormatter
-
 
 def get_busy_hour(arr, period):
     best, high = None, None
@@ -114,7 +109,7 @@ class CromeProcessor(object):
         # compute path of this package to add it as a dependency
         package_path = path.dirname(path.realpath(__file__))
         return Model(classify=predict_metric), Requirements(packages=[package_path],
-                                                            reqs=[matplotlib, sklearn, np, pd])
+                                                            reqs=[sklearn, np, pd, matplotlib])
 
     def push_model(self, CSV_filenames, push_api, auth_api):
         from acumos.session import AcumosSession
@@ -392,6 +387,11 @@ class CromeProcessor(object):
 
 
 def draw_chart(chart_title, predicted, actual, dates, png_filename):       # three pd.Series
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.dates import DayLocator, HourLocator, DateFormatter
+
     chart_width, chart_height = 11, 8.5
     fig = plt.figure(figsize=(chart_width, chart_height))
     day_count = 1 + (dates[-1] - dates[0]).days
@@ -418,6 +418,11 @@ def draw_chart(chart_title, predicted, actual, dates, png_filename):       # thr
 
 
 def draw_multi_charts(chartlist, main_title, outputfile):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.dates import DayLocator, HourLocator, DateFormatter
+
     chart_width, chart_height = 14, 8.5
     fig = plt.figure(figsize=(chart_width, chart_height))
     rows, cols = get_page_dim(len(chartlist))
