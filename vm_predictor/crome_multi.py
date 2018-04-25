@@ -98,18 +98,25 @@ class CromeProcessor(object):
         xmodel, train_data = self.train_timeslice_model(master_df, VM_list, train_start, train_stop, featfile=data_out)
 
         df = train_data[self.features]
-        listVars = [(df.columns[i], type(df.ix[0][i])) for i in range(len(df.columns))]
+        listColumns = list(df.columns)
+        listVars = [(df.columns[i], type(df.ix[0][i])) for i in range(len(listColumns))]
         VmPredictorDataFrame = create_namedtuple('VmPredictorDataFrame', listVars)
+        VmPredictorDataFrameSet = create_namedtuple('VmPredictorDataFrameSet', [('frames', List[VmPredictorDataFrame])])
+        type_out = List[float]
 
-        def predict_metric(df: VmPredictorDataFrame) -> List[float]:
+        def predict_metric(val_wrapped: VmPredictorDataFrameSet) -> type_out:
             '''Returns an array of float predictions'''
-            X = np.column_stack(df)
-            return xmodel.predict(X)
+            df = pd.DataFrame(val_wrapped.frames, columns=listColumns)
+            # df = pd.DataFrame(np.column_stack(val_wrapped), columns=val_wrapped._fields)  # numpy doesn't like binary
+            predict_nd = xmodel.predict(df)   # return here is a nd-array
+            predict_list = predict_nd.tolist()  # flatten to tag set
+            # predict_list = type_out(list(predict_nd))  # flatten to tag set
+            return predict_list
 
         # compute path of this package to add it as a dependency
         package_path = path.dirname(path.realpath(__file__))
         return Model(classify=predict_metric), Requirements(packages=[package_path],
-                                                            reqs=[sklearn, np, pd, matplotlib])
+                                                            reqs=[sklearn, np, pd])
 
     def push_model(self, CSV_filenames, push_api, auth_api):
         from acumos.session import AcumosSession

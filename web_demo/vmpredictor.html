@@ -9,9 +9,9 @@
   under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
   You may obtain a copy of the License at
- 
+
   http://www.apache.org/licenses/LICENSE-2.0
- 
+
   This file is distributed on an "AS IS" BASIS,
   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   See the License for the specific language governing permissions and
@@ -30,62 +30,27 @@ Display graphs and rendering from model predictions
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <title>VM Resource Prediction</title>
-<script type="text/javascript" src="js/jquery.min.js"></script>
-<script type="text/javascript" src="js/angular.js"></script>
-<script type="text/javascript" src="assets/vmpredictor.js"></script>
-
-<script type="text/javascript" src="js/bootstrap.min.js"></script>
-<script type="text/javascript" src="js/ui-bootstrap-tpls-2.5.0.min.js"></script>
-<!-- <script type="text/javascript" src="assets/video-list.js"></script> -->
 
 
 <!-- <link rel="stylesheet" type="text/css" href="assets/image-classes.css" /> -->
 <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css" />
 <link rel="stylesheet" type="text/css" href="css/bootstrap-theme.min.css" />
-<link rel="stylesheet" type="text/css" href="assets/vmpredictor.css" />
+<link rel="stylesheet" href="text/css" href="css/bootstrap-slider.css">
+<link rel="stylesheet" type="text/css" href="custom/vmpredictor.css" />
 </head>
 <body>
 <div class="container">
-    <div class="row">
-      <div class="col-md-12">
-        <img class="img-responsive"  src="assets/header.png" />
-      </div>
-    </div>
-    <div class="row" ng-controller="VmPicker">
+  <div class="col-md-12">
+      <h1>VM Predictor Demo</h1>
+  </div>
+
+    <div class="row" >
       <div class="col-md-2">
-        <form>
-            <div >
-                <div class="form-group">
-                  <label>Customer VM</label>
-                  <select class="form-control" ng-model="vm.selected" ng-options="o as o for o in vm.options"></select>
-                </div>
-            </div>
-
-            <div ng-controller="DatepickerPopupCtrl">
-              <div class="form-group">
-                <label>Start Date:</label>
-                <p class="input-group">
-                  <input type="text" class="form-control" uib-datepicker-popup="{{format}}" ng-model="dtFirst" is-open="popup1.opened"
-                         datepicker-options="dateOptions" ng-required="true" ng-disabled="true" close-text="Close" alt-input-formats="altInputFormats" />
-                  <span class="input-group-btn">
-                    <button type="button" class="btn btn-default" ng-click="open1()"><i class="glyphicon glyphicon-calendar"></i></button>
-                  </span>
-                </p>
-                <label>End Date:</label>
-                <p class="input-group">
-                  <input type="text" class="form-control" uib-datepicker-popup="{{format}}" ng-model="dtLast" is-open="popup2.opened"
-                         datepicker-options="dateOptions" ng-required="true" ng-disabled="true" close-text="Close" alt-input-formats="altInputFormats" />
-                  <span class="input-group-btn">
-                    <button type="button" class="btn btn-default" ng-click="open2()"><i class="glyphicon glyphicon-calendar"></i></button>
-                  </span>
-                </p>
-              </div>
-            </div>
-
+        <div class="row">
             <div class="info_example">
                 <span class="title">Dashboard Use</span>
                 <p class="small">
-                    For a hosted <strong>Customer VM</strong>, this report indicates the <em>predicted</em> and actual resource
+                    For a hosted <strong>Customer VM</strong>, this app indicates the <em>predicted</em> and actual resource
                     usage for CPU, memory, and net throughput using historical ONAP records.
                 </p>
                 <p class="small">
@@ -93,25 +58,97 @@ Display graphs and rendering from model predictions
                     hardware utilization based on expected resource needs.
                 </p>
                 <p class="text-left small text-uppercase">
-                    <a href='http://www.research.att.com/projects/Video/'>Video and Multimedia Technologies Research</a>
+                    <a href='http://www.research.att.com/sites/labs_research/open_source'>Video and Machine Learning Research</a>
                 </p>
-            </div>
-
-        </form>
+          </div>
       </div>
-      <div class="col-md-10" >
-        <div class="row">
+      </div>
+
+      <div class="col-md-10"  >
+        <uib-tabset active="activeJustified" justified="true">
+
+
+        <uib-tab index="0"  heading="Live Tests" >
+          <div ng-controller="ProtoSim">
+          <div class="row">
             <div class="col-md-12">
+            <table class="table_config table" >
+                <tr><td><label for="serverUrl">Transform URL:</label></td>
+                    <td><input type="text" name="serverUrl" id="serverUrl" ng-model="gen.server" size="60" />
+                    <br /><span class="tiny"><em>Note: The endpoint url may be modified when a new method below is utilized.</em></span></td></tr>
+                <tr><td><label for="protoMethod">Protobuf Method:</label></td>
+                    <td><select name="protoMethod" id="protoMethod" ><option value="">(disabled, not loaded)</option></select></td></tr>
+                <tr><td><label for="protoButton">Protobuf Message:</label></td>
+                    <td><button type="button" name="protoInput" ng-disabled="gen.bin_input==null" ng-click="gen.dl_proto(true)">Download Encoded Input</button> -
+                    <button type="button" name="protoOutput" ng-disabled="gen.bin_output==null" ng-click="gen.dl_proto(false)">Download Encoded Response</button></td></tr>
+            </table>
+            </div>
+            <div class="col-md-12">
+                <div class="text-center"><button class="text-right btn-small" ng-class="{'btn-danger': gen.trigger_active, 'btn-success':!gen.trigger_active}"
+                        ng-click="gen.post_feature(true)">Trigger Send</button></div>
+                <table class="table_config table table-responsive" >
+                    <thead><tr>
+                        <th><div class="text-left">Output</div></th>
+                        <th>Input</th>
+                    </tr></thead>
+                    <tbody>
+                        <tr ng-repeat="obj_out in gen.obj_output track by $index" >
+                            <td>{{ gen.obj_output[$index] }}</td>
+                            <td>{{ gen.obj_input[$index]  }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+          </div>
+          </div>
+        </uib-tab>
+
+
+        <uib-tab index="1" heading="Historical Plots">
+            <div  ng-controller="VmPicker">
+            <div class="row">
+            <form>
+            <div class="col-md-12">
+                <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                      <label>Customer VM</label>
+                      <select class="form-control" ng-model="vm.selected" ng-options="o as o for o in vm.options"></select>
+                    </div>
+                </div>
+                <div class="col-md-3" ng-controller="DatepickerPopupCtrl">
+                    <label>Start Date:</label>
+                    <p class="input-group">
+                      <input type="text" class="form-control" uib-datepicker-popup="{{format}}" ng-model="dtFirst" is-open="popup1.opened"
+                             datepicker-options="dateOptions" ng-required="true" ng-disabled="true" close-text="Close" alt-input-formats="altInputFormats" />
+                      <span class="input-group-btn">
+                        <button type="button" class="btn btn-default" ng-click="open1()"><i class="glyphicon glyphicon-calendar"></i></button>
+                      </span>
+                    </p>
+                </div>
+                <div class="col-md-3" ng-controller="DatepickerPopupCtrl">
+                    <label>End Date:</label>
+                    <p class="input-group">
+                      <input type="text" class="form-control" uib-datepicker-popup="{{format}}" ng-model="dtLast" is-open="popup2.opened"
+                             datepicker-options="dateOptions" ng-required="true" ng-disabled="true" close-text="Close" alt-input-formats="altInputFormats" />
+                      <span class="input-group-btn">
+                        <button type="button" class="btn btn-default" ng-click="open2()"><i class="glyphicon glyphicon-calendar"></i></button>
+                      </span>
+                    </p>
+                </div>
+                </div>
+            </form>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-10 col-md-offset-1">
                 <h3 class="text-center">Predicted and Actual {{graphs.options[graphs.selected].desc}} Report</h3>
                 <div class="graph_crop" >
-                    <img class="graph_zoom img-responsive " alt="{{graphs.options[graphs.selected].desc}}"
+                    <a href="assets/{{graphs.options[graphs.selected].path}}/{{vm.selected}}.png" target="_new"
+                      ><img class="graph_zoom img-responsive " alt="{{graphs.options[graphs.selected].desc}}"
                          title="{{graphs.options[graphs.selected].desc}}"
-                         src="assets/{{graphs.options[graphs.selected].path}}/{{vm.selected}}.png"  />
+                         src="assets/{{graphs.options[graphs.selected].path}}/{{vm.selected}}.png"  /></a>
                 </div>
-            </div>
-        </div>
-        <div class="row">
-              <div class="col-md-8 col-md-offset-2">
                 <div class="info_legend">
                     <p class="small">
                         <span >Legend</span>
@@ -124,16 +161,18 @@ Display graphs and rendering from model predictions
                     </p>
                 </div>
             </div>
-        </div>
-        <div class="row">
-            <div class="col-md-4 border-padding" ng-repeat="(graph_type,graph) in graphs.options "
-                    ng-class="{'border-selected' : graph_type==graphs.selected }"
-                    ng-click="graphSwitch(graph_type)">
-                <div class="graph_crop" >
-                    <img class="graph_summary img-responsive " alt="{{graph.desc}}" title="{{graph.desc}}"
-                         src="assets/{{graph.path}}/{{vm.selected}}.png"  />
+          </div>
+          <div class="row">
+            <div class="col-md-offset-1 col-md-10">
+                <div class="col-md-4 border-padding" ng-repeat="(graph_type,graph) in graphs.options "
+                        ng-class="{'border-selected' : graph_type==graphs.selected }"
+                        ng-click="graphSwitch(graph_type)">
+                    <div class="graph_crop" >
+                        <img class="graph_summary img-responsive " alt="{{graph.desc}}" title="{{graph.desc}}"
+                             src="assets/{{graph.path}}/{{vm.selected}}.png"  />
+                    </div>
+                    <p class="text-center text-uppercase">{{graph.desc}}</p>
                 </div>
-                <p class="text-center text-uppercase">{{graph.desc}}</p>
             </div>
             <!--
             <div class="col-md-4 border-padding">
@@ -146,9 +185,36 @@ Display graphs and rendering from model predictions
             -->
 
         </div>
+        </div>
+        </uib-tab>
+
+
+      </uib-tabset>
       </div>
     </div>
+
+
+
 </div>
+
+<!--- late load javascript ------->
+
+<script type="text/javascript" src="js/jquery.min.js"></script>
+<script type="text/javascript" src="js/angular.min.js"></script>
+<script type="text/javascript" src="js/d3.min.js"></script>
+
+<script type="text/javascript" src="js/protobuf.min.js"></script>
+
+<script type="text/javascript" src="js/bootstrap-slider.min.js"></script>
+
+<script type="text/javascript" src="js/bootstrap.min.js"></script>
+<script type="text/javascript" src="js/ui-bootstrap-tpls-2.5.0.min.js"></script>
+<script type="text/javascript" src="js/bootstrap-slider.min.js"></script>
+<script type="text/javascript" src="js/slider.js"></script>
+<!-- <script type="text/javascript" src="assets/video-list.js"></script> -->
+<script type="text/javascript" src="custom/vmpredictor.js"></script>
+
+
 
 </body>
 </html>

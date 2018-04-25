@@ -1,0 +1,30 @@
+syntax = "proto3";
+package BmiKyPSTShUpVPFQMXlKqbAPlYkUtcxW;
+
+service Model {
+  rpc classify (VmPredictorDataFrameSet) returns (ClassifyOut);
+}
+
+message VmPredictorDataFrameSet {
+  repeated VmPredictorDataFrame frames = 1;
+}
+
+message VmPredictorDataFrame {
+  int64 day = 1;
+  int64 weekday = 2;
+  int64 hour = 3;
+  int64 minute = 4;
+  double hist_1D8H = 5;
+  double hist_1D4H = 6;
+  double hist_1D2H = 7;
+  double hist_1D1H = 8;
+  double hist_1D = 9;
+  double hist_1D15m = 10;
+  double hist_1D30m = 11;
+  double hist_1D45m = 12;
+  string VM_ID = 13;
+}
+
+message ClassifyOut {
+  repeated double value = 1;
+}

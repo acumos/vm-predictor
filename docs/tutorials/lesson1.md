@@ -32,6 +32,9 @@ Data files can be large, and CROME's so-called 'FEAT' files are no exception.
 (Note:   Another set of tools captures the raw data to create the FEAT files.
 The workings of those tools are beyond the scope of this document.)
 
+***NOTE: If you wish to skip to actually building a model with included sample
+data, please head to the "Model Deployment" subsection below.***
+
 The FEAT data may be delimited by month.   For example, `data/multi/raw-feature.csv.gz`
 contains data from February 2017 through the beginning of March 2017.  The data is
 "raw" in that it needs a substantial amount of preprocessing.   That's obvious just

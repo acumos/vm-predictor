@@ -42,6 +42,6 @@ a live database.
 For interactions, this page uses open-source web technologies like
 [bootstrap-3.3.7](http://getbootstrap.com/getting-started/#download),
 [AngularJS 1.6.1](https://angularjs.org/),
-[jQuery 3.2.1](https://jquery.com/download/), and
-[UI Bootstrap 2.5](https://angular-ui.github.io/bootstrap/#!#getting_started).
+[jQuery 3.2.1](https://jquery.com/download/),
+and [UI Bootstrap 2.5](https://angular-ui.github.io/bootstrap/#!#getting_started).
 

@@ -39,52 +39,73 @@ train/predict regimen over an extended period of time.   It can help set up
 scenarios such as:  "let's train on 31 days of data and predict usage for the
 following day, repeated every day for 6 months".
 
-## Package dependencies
-
-Package dependencies for the core code and testing have been flattened into a single file 
-for convenience. Instead of installing this package into your your local 
-environment, execute the command below.
-```
-pip install -r requirments.txt
-```
-or, if you want ot install dependencies with a classic package place holder...
-```
-pip install . -v
-```
 
 ## WORKFLOW
 
 Given a set of FEAT (or other) CSV files containing time-series data, the process is fairly simple.
 
-1. First one needs to decide whether to build multi-entity (VM) models or single-entity models.
-2. Single-entity simulations process files that contain time-series data for a single entity (VM) only. Since the FEAT csv files typically contain multiple entities, they must first be broken up into per-entity files using the tool add_FEAT_data.py.
+1. Collect KPI data from a collector software. A simple columnar format is acceptable, with
+   the minum columns being *KPI*, *timestamp*, *VM/uniqueid*.
+2. Next, decide if a single-entity or multi-entitiy model is preferred.  Generally, we
+   advocate for a multi- model because some insights from one VM may be conveyed to another.
+3. Either reformat data by hand, use the scripts provided here, or let it occur during
+   training and processing.
+    1. Reformatting requires the collection of all time samples and resampling at the
+       specified intervals.
+    2. Specifically, resampling history for 1D8H means that using the provided sample
+       time one should also include a sample from one day and eight hours ago.
+4. Train the model and export a binary artifact.  Note that these models are currently
+   static and not online-updatable.
 
-It may be as simple as this:
-```
-python add_FEAT_data.py FEAT*.csv -o ./VM_data
-```
-Then processing the separate VM files, with compound charts, could be accomplished by:
-```
-python crome_multi.py  ./VM_data/*.csv -c
-```
-(2b) Multi-entity simulations can process the FEAT files directly. However, some care must be taken if the files are sequential or very large.
 
-If the FEAT files are sequential in time, you do not want to process them separately; instead you want to process them as if they were concatenated. That can be accomplished with the 'join_files' (-j) option:
-```
-python crome_multi.py -j FEAT*.csv
-```
-Depending on memory constraints, you may not be able to process all of the concatenated FEAT files at once. What you can do instead is process 1 or 2 at a time and collect the results in intermediate JSON files using the write_predictions (-p) option.
+## MACHINE LEARNING BASICS
 
-For exaple, if the train-predict regimen is 31 days and 1 day, at MINIMUM two month-long files are required. So to cover a longer time span one could proceed in steps as follows:
-```
-python crome_multi.py -p -o ./predict -j FEAT_Feb2017.csv FEAT_Mar2017.csv
-python crome_multi.py -p -o ./predict -j FEAT_Mar2017.csv FEAT_Apr2017.csv
-python crome_multi.py -p -o ./predict -j FEAT_Apr2017.csv FEAT_May2017.csv
-Etc.
-```
-The final output of that will be a set of JSON prediction files, one per entity/VM covering the entire (4-month) time range. To create charts from those JSON files another tool is used: preds2charts.py. For example:
+Machine learning models are trained on "features" in order to predict the "target".
 
-python preds2charts.py ./predict/*.json
+* In CROME FEAT files the target is typically a column containing one of the
+  usage statistics:  cpu_usage, mem_usage, or net_usage.   The target is
+  specified on the command line with the `-t` option, e.g. `-t net_usage`.
+  Note that target defaults to `cpu_usage`.
+* The features used are, by default, only time-based features such as 'month',
+  'day', 'weekday', 'hour', and 'minute'.   These do not require any other
+  information in the CSV file other than the date.  Good performance can be
+  achieved using just those features.
+* For enhanced ML performance however additional features may be required.
+  When the default is not used ALL features must be listed on the command line
+  with the "-f" switch.
+* In some cases the data files themselves contain features of value.  Just add
+  the name of the desired column to the feature list, for example "VM_ID".
+  Additionally crome_multi.py provides specialized syntax to give access to
+  prior values of the target, as features.  If a feature begins with "hist_"
+  it indicates such a 'historical' feature.  The time displacement string
+  immediately follows, for example 'hist_1D' is the target value one day previous.
+  'hist_1H' is one hour previous;  'hist_1D1H' is one day plus one hour previous.  And so on.
+* Those historical values are point values (according to the base sample size)
+  so to sample over a longer period add a second parameter after a dash.
+  'hist_2D-1H' specifies the previous target value two days ago averaged over one hour.
+
+See the [training and deployment steps](docs/tutorials/lession1.md) for more examples.
+
+
+## MODELS
+
+Access to several ML model types are built in to crome_multi.py.   The `-M`
+command line option allows selecting the learning algorithm (model).
+Current choices include:
+
+* "RF" -- Random Forest (default)
+* "RF_SC" -- Random Forest with Scaler
+* "ET" -- Extra Trees
+* "ET_SC" -- Extra Trees with Scaler
+
+The set_param (-i) switch gives command-line access to one or more of the
+model's internal parameters.   If "RF" is selected (the default), one can
+for example set the number of estimators to 18 with:  `-i rf__n_estimators 18`.
+
+Code for choices "H2O" and "ARIMA" also exists but require a scikit
+wrapper to function within crome_multi.py (not included).
+Also, the base class can easily accomodate your own *custom* models
+especially via the scikit interface.
 
 
 ### Installation and Package dependencies
@@ -163,55 +184,6 @@ optional arguments:
 
 
 
-
-## MACHINE LEARNING BASICS
-
-Machine learning models are trained on "features" in order to predict the "target".
-
-* In CROME FEAT files the target is typically a column containing one of the
-  usage statistics:  cpu_usage, mem_usage, or net_usage.   The target is
-  specified on the command line with the `-t` option, e.g. `-t net_usage`.
-  Note that target defaults to `cpu_usage`.
-* The features used are, by default, only time-based features such as 'month',
-  'day', 'weekday', 'hour', and 'minute'.   These do not require any other
-  information in the CSV file other than the date.  Good performance can be
-  achieved using just those features.
-* For enhanced ML performance however additional features may be required.
-  When the default is not used ALL features must be listed on the command line
-  with the "-f" switch.
-* In some cases the data files themselves contain features of value.  Just add
-  the name of the desired column to the feature list, for example "VM_ID".
-  Additionally crome_multi.py provides specialized syntax to give access to
-  prior values of the target, as features.  If a feature begins with "hist_"
-  it indicates such a 'historical' feature.  The time displacement string
-  immediately follows, for example 'hist_1D' is the target value one day previous.
-  'hist_1H' is one hour previous;  'hist_1D1H' is one day plus one hour previous.  And so on.
-* Those historical values are point values (according to the base sample size)
-  so to sample over a longer period add a second parameter after a dash.
-  'hist_2D-1H' specifies the previous target value two days ago averaged over one hour.
-
-See the [training and deployment steps](docs/tutorials/lession1.md) for more examples.
-
-
-## MODELS
-
-Access to several ML model types are built in to crome_multi.py.   The `-M`
-command line option allows selecting the learning algorithm (model).
-Current choices include:
-
-* "RF" -- Random Forest (default)
-* "RF_SC" -- Random Forest with Scaler
-* "ET" -- Extra Trees
-* "ET_SC" -- Extra Trees with Scaler
-
-The set_param (-i) switch gives command-line access to one or more of the
-model's internal parameters.   If "RF" is selected (the default), one can
-for example set the number of estimators to 18 with:  `-i rf__n_estimators 18`.
-
-Code for choices "H2O" and "ARIMA" also exists but require a scikit
-wrapper to function within crome_multi.py (not included).
-Also, the base class can easily accomodate your own *custom* models
-especially via the scikit interface.
 
 ### Advanced Variations
 
