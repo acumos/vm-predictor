@@ -1,0 +1,57 @@
+---
+project: 'vm-predictor'
+project_creation_date: '2017-11-30'
+project_category: ''
+lifecycle_state: 'Incubation'
+project_lead: &acumos_vm-predictor_ptl
+     name: 'Ken Kristiansen'
+    email: 'kk4281@att.com'
+    id: 'kk4281'
+    company: 'ATT'
+    timezone: 'America/New_York'
+primary_contact: '*acumos_vm-predictor_ptl'
+issue_tracking:
+    type: 'jira'
+    url: 'https://jira.acumos.org/projects/ACUMOS'
+    key: 'ACUMOS'
+mailing_list:
+    type: 'groups.io'
+    url: 'lists.acumos.org'
+    tag: '<[sub-project_name]>'
+realtime_discussion:
+    type: 'irc'
+    server: 'freenode.net'
+    channel: '#acumos'
+meetings:
+    - type: 'zoom'
+      agenda: ''
+      url: ''
+      server: 'n/a'
+      channel: 'n/a'
+      repeats: 'n/a'
+      time: 'n/a'
+repositories:
+    - 'vm-predictor'
+committers:
+    - <<: *acumos_vm-predictor_ptl
+    - name: 'Aimee Ukasick'
+      email: 'aimeeu@research.att.com'
+      company: 'ATT'
+      id: 'aimeeu'
+      timezone: 'America/Chicago'
+    - name: 'Bryan Sullivan'
+      email: 'bryan.sullivan@att.com'
+      company: 'ATT'
+      id: 'blsaws'
+      timezone: 'America/Los_Angeles'
+    - name: 'Eric Z'
+      email: 'ezavesky@research.att.com'
+      company: 'ATT'
+      id: 'ezsomething'
+      timezone: 'America/Chicago'
+tsc:
+    approval: ''
+    changes:
+        - type: ''
+          name: ''
+          link: ''
