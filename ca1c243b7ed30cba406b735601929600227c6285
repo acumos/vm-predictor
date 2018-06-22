@@ -1,0 +1,50 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "2f7ec109_23a3031d",
+        "filename": "INFO.yaml",
+        "patchSetId": 1
+      },
+      "lineNbr": 11,
+      "author": {
+        "id": 94
+      },
+      "writtenOn": "2018-06-22T17:36:33Z",
+      "side": 1,
+      "message": "timezone: US/New York\nemail: kk4281@att.com",
+      "range": {
+        "startLine": 7,
+        "startChar": 4,
+        "endLine": 11,
+        "endChar": 16
+      },
+      "revId": "ca1c243b7ed30cba406b735601929600227c6285",
+      "serverId": "655300a2-7a56-4504-9153-881edd907bea",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "c8362411_1896f662",
+        "filename": "INFO.yaml",
+        "patchSetId": 1
+      },
+      "lineNbr": 24,
+      "author": {
+        "id": 94
+      },
+      "writtenOn": "2018-06-22T17:36:33Z",
+      "side": 1,
+      "message": "perhaps #acumos is a better channel to list here",
+      "range": {
+        "startLine": 24,
+        "startChar": 4,
+        "endLine": 24,
+        "endChar": 25
+      },
+      "revId": "ca1c243b7ed30cba406b735601929600227c6285",
+      "serverId": "655300a2-7a56-4504-9153-881edd907bea",
+      "unresolved": false
+    }
+  ]
+}
