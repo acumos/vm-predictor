@@ -4,7 +4,7 @@ project_creation_date: '2017-11-30'
 project_category: ''
 lifecycle_state: 'Incubation'
 project_lead: &acumos_vm-predictor_ptl
-     name: 'Ken Kristiansen'
+    name: 'Ken Kristiansen'
     email: 'kk4281@att.com'
     id: 'kk4281'
     company: 'ATT'
