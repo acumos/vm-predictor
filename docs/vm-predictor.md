@@ -115,7 +115,7 @@ To install vm-predictor just clone this repository and use pip.
 Note You must have installed acumos_client before this package can be installed.
 
 ```
-git clone <vm-predictor repo url>
+git clone --depth 1 <vm-predictor repo url>
 pip install .
 ```
 
