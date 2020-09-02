@@ -1,4 +1,5 @@
 # UUID                                                                         	Group Name
 #
 42f0c83244389e408b42fa668348002012ecba46                                       	GitHub Replication
+aa8a617585c412f3a13ec322cdd99226f1bb5344                                       	saml/acumos-gerrit-vm-predictor-committers
 ldap:cn=acumos-gerrit-vm-predictor-committers,ou=Groups,dc=freestandards,dc=org	ldap/acumos-gerrit-vm-predictor-committers
